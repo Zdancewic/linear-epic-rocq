@@ -13,61 +13,55 @@ Definition fvar := nat.
 
 (* Raw de Bruijn Syntax ------------------------------------------------------ *)
 
-(*
-   lam. lam. 0  == lam x lam y. y
-   lam. lam. 1  == lam x lam y. x
-   lam. lam. 2  ==?  lam x lam y. w   (w "in the context" )
+(* Terms are represented using de Bruijn indexes.
+
+   There are two types of identifiers:
+
+   Unrestricted (a.k.a. non-linear) Identifiers
+    - these represent names of lambdas
+    - by convention, we use [m : nat] to represent the number of such 
+      identifies in scope within a term
+    - we use [f] (for "function") and variants as the metavariable
+      for writing down function identifiers
+
+   Linear Identifiers
+    - these represent "cuts" or "resource names" in the semantics
+    - by convention, we use [n : nat] to represent the number of such
+      identifiers in scope within a term
+    - we use [r] (for "resource") and variants as the metavariable
+      for writing down function identifiers 
+
+   # Terms:
+
+   A "term" [t] is a "bag" [bag m n P], consisting of a processes [P]. 
+   It binds [m] (fresh) function identifiers and [n] (fresh) resource
+   identifiers.
+
+   # Processes:
+
+   A process [P] is one of:
+     - a definition [def r o] (written informally as "r <- o"),
+       which defines the resource [r] as the operand [o]
+
+     - a function application [f r].  Functions always take one
+       argument, [r], and the function identifer [f] should be
+       bound to a lambda somwehere in the context
+
+     - two processes running "in parallel": [par P1 P2]
+
+   # Operands:
+
+   An operand [o] provides a definition of a resource identifier and
+   can be one of:
+
+     - [tup rs]  a "tuple" of resources
+     - [bng f]   the name of a function
+     - [lam t]   an lambda, which is a term parameterized by one resource
 
 
-t := {f1,...fm} {r1,..rn} P
-stmt :=
-   r <- (r1, ... , r_n)
-   r <- ?f
-   r <- lam x. t
-   f r
+  (* SAZ: We could contemplate defining Rocq notations for terms. *) 
 
-===========
-
-fun (nil, cons) =>
-  cons(4, cons(3, nil))
-
-=======
-
-lam l.
-  l <- (nil_r, cons_r, ret)
-  cons_r <- !cons
-  a0 <- (nil_r, 3, r1)
-  cons a0
-  a1 <- (r1, 4, ret)
-  cons a1
-
-==============
-lam l.
-  P0
-  r0 <- (ra, rb, rc)
-  r0 <- (r1, ra, r3)
-  P1
-
-~~>
-
-lam l.
-  r1 <- (rb, rc)
-  {rb = r1}{rc = r3}(
-  P1{ra = r1}
-  )
-
-
-r1 <- lam r. P
-r1 <- ?f
-f ra
-
-~~>
-r1 <- lam r. P
-r1 <- ?f
-{r=ra}P
-
-
-*)
+ *)
 
 Inductive term :=
 | bag (m n:nat) (P:proc)   (* nu. {f1...fm} {r1..rn} P *)
@@ -100,9 +94,20 @@ Scheme term_rec_m := Induction for term Sort Set
 
 Combined Scheme tpo_rec from term_rec_m, proc_rec_m, oper_rec_m.
 
+
+
 (* Scoping *)
 
-(* Well scoping - just checks that de Bruijn variables are in bounds. *)
+(* Well scoping - just checks that de Bruijn variables are in bounds.
+
+   [ws_term m n t] means that term [t] is well-scoped with at most
+   [m] function identifiers and [n] resource identifiers.
+
+   (and similarly for [ws_proc] and [ws_oper]).
+
+   A de Bruijn variable is "in scope" if it is less than the number
+   of variables in the context.
+ *)
 Unset Elimination Schemes.
 Inductive ws_term : nat -> nat -> term -> Prop :=
 | ws_bag :
@@ -116,8 +121,7 @@ with ws_proc : nat -> nat -> proc -> Prop :=
 | ws_def :
   forall m n
     (r : rvar) (HR : r < n)
-    (o : oper)
-    (WSO : ws_oper m n o),
+    (o : oper) (WSO : ws_oper m n o),
     ws_proc m n (def r o)
 
 | ws_app :
@@ -161,8 +165,14 @@ Combined Scheme ws_tpo_ind from ws_term_ind, ws_proc_ind, ws_oper_ind.
 
 (* Structural Equivalence --------------------------------------------------- *)
 
-(* Doesn't quotient by alpha conversion; i.e. permutation of the variable
-   names.
+(* Defines "structural" equivalence of the syntax.  The syntax is considered
+   up to reordering of the process components within a bag.  That is,
+   we can permute and re-associate the [par] operator.
+
+   Note that such permutations do not affect the meaning of de Bruijn
+   indices.
+
+   These relations define equivalence relations on syntax.
  *)
 
 Inductive seq_term : term -> term -> Prop :=
@@ -332,6 +342,12 @@ Proof.
   apply tpo_seq_symmetric.
 Qed.
 
+(* structural equivalence "inversion" lemmas:
+   - these lemmas extract information about the structure of a
+     piece of syntax that is known to be structurally equivalent
+     to a more defined piece of syntax.
+ *)
+
 Lemma seq_proc_inv_def' : forall P1 P2,
     P1 ≈p P2 ->
     (forall r o, P1 = def r o -> exists o', P2 = def r o' /\ o ≈o o') /\
@@ -427,6 +443,39 @@ Proof.
   reflexivity.
 Qed.
 
+(* Well Formedness ---------------------------------------------------------- *)
+
+(* These relations check the useage (linearity / definition) constraints as well
+   as scoping of the variables.
+
+   The type [lctxt k] defines a "linearity context" for [k] de Bruijn variables
+   it maps each identifier to its "usage", i.e. the number of times it is "used"
+   in the scope.
+
+   # Unrestricted Contexts: [G]
+
+   By convention, we use [G] (or maybe [Γ] on paper) to range over unrestricted
+   identifier contexts.
+
+    Within a given scope, each unrestricted identifer [f] must be *defined*
+   (i.e. appear under a [bng]) exactly once, though it may be called an
+   arbitrary number of times.  The usage for each [f] is therefore the
+   number of times it is *defined* in a scope.  (We will need a separate judgment
+   to determine whether a given [f] is not used at all, which will justify
+   a "garbage collection" rule for unrestricted contexts.)
+
+   # Restricted / Linear Contexts: [D]
+
+   By convention, we use [D] (or maybe [Δ] on paper) to range over unrestricted
+   identifier contexts.
+
+   Within a given scope, each linear / restricted identifier [r] must be
+   mentioned exactly twice.  (Or not mentioned at all.)  Unlike for 
+   [f]'s, if [D r = 0] then there should be no occurrence of the restricted
+   variable in a given scope, and we can immediately "strengthen" the
+   context to discard it.
+ *)
+
 Unset Elimination Schemes.
 Inductive wf_term : forall (m n:nat), lctxt m -> lctxt n -> term -> Prop :=
 | wf_bag :
@@ -502,6 +551,7 @@ Ltac existT_eq :=
           apply Eqdep_dec.inj_pair2_eq_dec in H; [| apply Nat.eq_dec]
       end.
 
+(* Prove that well-formedness respects structural equivalence. *)
 
 (* It seems that the trick for this proof is to close under commutatitivy explicitly. *)
 Lemma tpo_wf_seq :
@@ -626,7 +676,38 @@ Proof.
   apply tpo_wf_seq. assumption.
 Qed.
 
+(* Every well formed piece of syntax is also well scoped *)
+Lemma tpo_wf_ws :
+  (forall m n G D t,
+      wf_term m n G D t ->
+      ws_term m n t)
+  /\
+    (forall m n G D P,
+        wf_proc m n G D P ->
+        ws_proc m n P)
+  /\
+    (forall m n G D o,
+        wf_oper m n G D o ->
+        ws_oper m n o).
+Proof.
+  apply wf_tpo_ind; intros; constructor; auto.
+Qed.  
+
+
 (* renaming ----------------------------------------------------------------- *)
+
+(* The operational semantics involve renaming resource identifiers.
+
+   Renamings, in general, are defined in [Contexts.v], but  for de Bruijn
+   indices, a renaming  amounts to function that takes a variable and
+   returns a variable.
+
+   The type [ren n n'] "renames" a variable in scope [n] to be a variable
+   in scope [n'].  (In general, [n] and [n'] might be different.)
+
+   The following functions just "map" a renaming over all the occurrences
+   of the (free) identifiers in a term.
+*)
 
 Import Renamings.
 
@@ -655,6 +736,13 @@ Fixpoint rename_rvar_proc {n n'} (v : ren n n') P : proc :=
 
 (* terms don't have any free rvars to rename *)
 Definition rename_rvar_term {n n'} (v : ren n n') (t : term) := t.
+
+(* Unrestricted identifiers *are* lexically scoped in the sense
+   that an identifier introduced in an outer scope might be mentioned
+   in an inner, nested term (e.g. under a [lam]).  That means
+   we have to "shift" renamings as we traverse through the syntax,
+   ensuring that we only rename the "free" occurences.
+*)
 
 Fixpoint rename_fvar_term {m m'} (v : ren m m') (t : term) : term :=
   match t with
@@ -884,21 +972,13 @@ Qed.
 
 
 (* nu equivalence -------------------------------------------------------- *)
-(* The "nu-bound" variables within a bag can be permuted without
-   affecting the meaning of the term.
+(* The "nu-bound" variables within a bag can be permuted without affecting the
+meaning of the term.
 
-Inductive term :=
-| bag (m n:nat) (P:proc)
+   That means that [bag m n t] is "permutation equivalent" to [be m n t'] when
+   we rename the  [m] free function identifiers and [n] free resource identifiers
+   up to some bijection.
 
-with proc :=
-| def (r:rvar) (o:oper)
-| app (f:fvar) (r:rvar)
-| par (P1 P2 : proc)
-
-with oper :=
-| tup (rs : list rvar)
-| bng (f:fvar)
-| lam (t : term).
 *)   
 
 Unset Elimination Schemes.
@@ -1121,12 +1201,9 @@ Proof.
 Qed.    
 
 
-
-(*
-   As defined, peq is not reflexive because it requires that
-   the variables mentioned are in scope.  Therefore peq defines
-   a PER. It is reflexive on "well scoped" terms. 
- *)
+(* As defined, renaming by the identity isn't reflexive because it requires that
+   the variables mentioned are in scope.  Therefore peq defines a PER. It is
+   reflexive on "well scoped" terms.  *)
 Lemma peq_id_refl_tpo :
   (forall m n (t : term),
       ws_term m n t ->
@@ -1153,21 +1230,10 @@ Proof.
     auto.
 Qed.
 
-Lemma tpo_wf_ws :
-  (forall m n G D t,
-      wf_term m n G D t ->
-      ws_term m n t)
-  /\
-    (forall m n G D P,
-        wf_proc m n G D P ->
-        ws_proc m n P)
-  /\
-    (forall m n G D o,
-        wf_oper m n G D o ->
-        ws_oper m n o).
-Proof.
-  apply wf_tpo_ind; intros; constructor; auto.
-Qed.  
+(* We can existentially quantify over the renamings to get a "permutation"
+   equivalence on syntax directly.  These relations are what actually formed
+   a partial equivalence relation (PER).
+ *)
 
 Inductive peq_t (m n : nat) (t t' : term) : Prop :=
 | peq_t_intro :
@@ -1206,23 +1272,6 @@ Inductive peq_o (m n : nat) (o o' : oper) : Prop :=
 Infix "[t≡ m n ]" := (peq_t m n) (at level 55).
 Infix "[p≡ m n ]" := (peq_p m n) (at level 55).
 Infix "[o≡ m n ]" := (peq_o m n) (at level 55).
-
-(*
-Lemma tpo_aeq_reflexive :
-  (forall (t : term), t ≡t t) /\
-    (forall (P : proc), P ≡p P) /\
-    (forall (o : oper), o ≡o o).
-Proof.
-  apply tpo_ind; intros; auto.
-  pose proof rename_rvar_id_proc.
-  pose proof rename_fvar_id_proc.
-  rewrite <- (H1 _ m) at 2.
-  rewrite <- (H0 _ n) at 2.
-  econstructor; eauto.
-  apply bij_ren_id.
-  apply bij_ren_id.
-Qed.
-*)
 
 Lemma peq_t_refl : forall m n t,
     ws_term m n t ->
@@ -1368,6 +1417,9 @@ Proof.
   apply HR.
 Qed.  
 
+(* Well-formedness also respects permutation equivalence, but we have to compose
+   the context with the *inverse* renaming to explain how the book keeping works
+   out.  *) 
 Lemma peq_wf_tpo :
   (forall (m n:nat)
       (G : lctxt m)
