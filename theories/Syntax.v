@@ -1038,7 +1038,7 @@ with peq_oper : forall (m n : nat) (bf : ren m m) (br : ren n n), oper -> oper -
     (br : ren n n),
     peq_term m 1 bf (ren_id 1) t t' ->
     peq_oper m n bf br (lam t) (lam t').
-
+Set Elimination Schemes.
 
 Hint Constructors peq_term peq_proc peq_oper : core.
 
@@ -1047,7 +1047,6 @@ Scheme peq_term_ind := Induction for peq_term Sort Prop
                          with peq_oper_ind := Induction for peq_oper Sort Prop.
 
 Combined Scheme peq_tpo_ind from peq_term_ind, peq_proc_ind, peq_oper_ind.
-Check peq_tpo_ind.
 
 Lemma peq_compose_tpo :
   (forall (m n:nat) (bf : ren m m) (br : ren n n) (t t' : term)
@@ -1576,7 +1575,7 @@ Definition cut n (x:var) : ren (x + 1 + n) (x + n) :=
    Here, n is the number of variables in the original scope that are > y.
  *)
 Definition retract n x y : ren (y + 1 + n) (y + n) :=
-  ren_compose (rename_var y x) (cut n y).
+  @ren_compose (y + 1 + n) (y + 1 + n) _ (rename_var y x) (cut n y).
 
 Definition cut_rvar_oper n x o : oper :=
   rename_rvar_oper (cut n x) o.
@@ -1596,12 +1595,11 @@ Fixpoint cuts n (l:list (nat * nat)) : ren (length l + n) n :=
       let x' := f x in
       let y' := f y in
           match Nat.compare x' y' with
-          | Lt => @ren_compose _ _ n f (retract n x' y')
-          | Eq => @ren_compose _ _ n f (cut n x')
-          | Gt => @ren_compose _ _ n f (retract n y' x')
+          | Lt => ren_compose f (retract n x' y')
+          | Eq => ren_compose f (cut n x')
+          | Gt => ren_compose f (retract n y' x')
       end
   end.
-
 
 (* Operational Semantics --------------------------------------------------- *)
 
@@ -1632,31 +1630,6 @@ Definition step_cuts m n xs ys P : option config :=
 
 Eval compute in step_cuts 0 5 ([0;1;2]) ([0;3;4]) ex_P0.
 
-
-Inductive cuts : list var -> list var -> config -> config -> Prop :=
-| cuts_nil :
-  forall C, cuts nil nil C C
-
-| cuts_cons_lt1 :
-  forall m n P r1 r2 dr2 xs ys C,
-    r2 = r1 + 1 + dr2 ->
-    0 < dr2 ->
-    cuts xs ys (m, r1 + 1 + dr2 + n, retract_rvar _ r1 r2 P) C ->
-    cuts (r1::xs) (r2::ys) (m, r1 + 1 + dr2 + 1 + n, P) C
-
-| cuts_cons_lt2 :
-  forall m n P r1 r2 dr2 xs ys C,
-    r2 = r1 + 1 + dr2 ->
-    0 < dr2 ->
-    cuts xs ys (m, r1 + 1 + dr2 + n, retract_rvar _ r1 r2 P) C ->
-    cuts (r2::xs) (r1::ys) (m, r1 + 1 + dr2 + 1 + n, P) C
-
-| cuts_cons_eq :
-  forall m n P r xs ys C,
-    cuts xs ys (m, r + n, cut_rvar_proc _ r P) C ->
-    cuts (r::xs) (r::ys) (m, r + 1 + n, P) C
-.
-*)
 
 (*
 P |  r <- (x, y, z) | r <- (y, z, x)
@@ -2071,79 +2044,3 @@ with canonical_oper : oper -> Prop :=
     canonical_oper (lam t).
 
 
-
-
-Inductive lift_r_ren_proc : forall n n', (ren n n') -> proc -> proc -> Prop :=
-| fr_def :
-  forall r r'
-    o o'
-    n n'
-    (R : ren n n')
-    (HR : R r r')
-    (HO : lift_r_ren_oper n n' R o o'),
-    lift_r_ren_proc n n' R (def r o) (def r' o')
-
-| fr_app :
-  forall r r'
-    f
-    n n'
-    (R : ren n n')
-    (HR : R r r'),
-    lift_r_ren_proc n n' R (app f r) (app f r')
-                       
-with lift_r_ren_oper : forall n n', (ren n n') -> oper -> oper -> Prop := 
-| fr_tup :
-  forall rs rs'
-    n n'
-    (R : ren n n')
-    (HRS : List.Forall2 R rs rs'),
-    lift_r_ren_oper n n' R (tup rs) (tup rs')
-
-| fr_bng :
-  forall f
-    n n'
-    (R : ren n n'),
-    lift_r_ren_oper n n' R (bng f) (bng f)
-
-| bf_lam :
-  forall t
-    n n'
-    (R : ren n n'),
-    lift_r_ren_oper n n' R (lam t) (lam t).
-
-
-
-
-Definition cut r1 r2 : rvar -> rvar -> Prop :=
-  match PeanoNat.Nat.compare r1 r2 with
-  | Lt => (fun x y =>
-           match PeanoNat.Nat.compare x r2 with
-           | Lt => y = x
-           | Eq => y = r1
-           | Gt => y = x - 1
-           end)
-  | Eq => (fun x y => y = x)
-  | Gt => (fun x y =>
-            match PeanoNat.Nat.compare x r1 with
-            | Lt => y = x
-            | Eq => y = r2
-            | Gt => y = x - 1
-            end)
-  end.
-
-Definition cut_proc (r1 r2 : rvar) :=
-  fold_rvar_rel_proc (cut r1 r2).
-
-Definition cut_oper (r1 r2 : rvar) :=
-  fold_rvar_rel_oper (cut r1 r2).
-
-(*
-Lemma strengthen_cut_wf :
-  forall m n (G : lctxt m) (D : lctxt n) (P P':proc)
-    (WF : wf_proc m n G D P)
-    (r : nat)
-    (HR1 : r < n)
-    (HU : D r = 0)
-    (HC : cut_proc r r P P'),
-    wf_proc m (n-1) G D P'.
-*)
