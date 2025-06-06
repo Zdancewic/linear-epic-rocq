@@ -54,9 +54,10 @@ Definition fvar := nat.
    An operand [o] provides a definition of a resource identifier and
    can be one of:
 
-     - [tup rs]  a "tuple" of resources
-     - [bng f]   the name of a function
-     - [lam t]   an lambda, which is a term parameterized by one resource
+     - emp          the empty tuple ()
+     - [tup r1 r2]  a "tuple" (pair) of resources
+     - [bng f]      the name of a function
+     - [lam t]      an lambda, which is a term parameterized by one resource
 
 
   (* SAZ: We could contemplate defining Rocq notations for terms. *) 
@@ -71,8 +72,9 @@ with proc :=
 | app (f:fvar) (r:rvar)  (* f r *)
 | par (P1 P2 : proc)     (* P1 | P2 *)
 
-with oper :=             
-| tup (rs : list rvar)   (* (r1,...,rk) *)
+with oper :=
+| emp                    (* empty tuple *)
+| tup (r1 r2:rvar)       (* (r1,r2) *)
 | bng (f:fvar)           (* !f *)
 | lam (t : term).        (* lam r. t *)
 
@@ -138,11 +140,15 @@ with ws_proc : nat -> nat -> proc -> Prop :=
     ws_proc m n (par P1 P2)
             
 with ws_oper : nat -> nat -> oper -> Prop :=
+|ws_emp :
+  forall m n,
+    ws_oper m n emp
+
 | ws_tup :
   forall m n
-    (rs : list rvar)
-    (HRS : List.Forall (fun x => x < n) rs),
-    ws_oper m n (tup rs)
+    (r1 : rvar) (HR1 : r1 < n)
+    (r2 : rvar) (HR2 : r2 < n),
+    ws_oper m n (tup r1 r2)
 
 | ws_bng :
   forall m n
@@ -287,6 +293,9 @@ Proof.
   - inversion H; subst.
     inversion H0; subst.
     reflexivity.
+  - inversion H; subst.
+    inversion H0; subst.
+    reflexivity.
   - inversion H1; subst; auto.
     inversion H0; subst; auto.
     econstructor.
@@ -319,6 +328,7 @@ Proof.
   apply tpo_ind; intros; auto.
   - inversion H0. subst.
     constructor. apply H. assumption.
+  - inversion H. reflexivity.
   - inversion H. reflexivity.
   - inversion H. reflexivity.
   - inversion H0; subst; auto.
@@ -486,7 +496,7 @@ Inductive wf_term : forall (m n:nat), lctxt m -> lctxt n -> term -> Prop :=
     (G' : lctxt m')
     (D' : lctxt n')
     (UG' : forall x, x < m' -> (G' x) = 1)
-    (UD' : forall x, x < n' -> (D' x) = 2)
+    (UD' : forall x, x < n' -> (D' x) = 2 \/ (D' x) = 0)
     (P : proc)
     (WFP : wf_proc (m' + m) (n' + n) (G' ⊗ G) (D' ⊗ D) P),
     wf_term m n G D (bag m' n' P)
@@ -517,11 +527,15 @@ with wf_proc : forall (m n:nat), lctxt m -> lctxt n -> proc -> Prop :=
     wf_proc m n (G1 ⨥ G2) (D1 ⨥ D2) (par P1 P2)
             
 with wf_oper : forall (m n:nat), lctxt m -> lctxt n -> oper -> Prop :=
+| wf_emp :
+  forall m n,
+    wf_oper m n (zero m) (zero n) emp
+
 | wf_tup :
   forall m n
-    (rs : list rvar)
-    (HRS : List.Forall (fun x => x < n) rs),
-    wf_oper m n (zero m) (SUM (List.map (one n) rs)) (tup rs)
+    (r1 : rvar) (HR1 : r1 < n)
+    (r2 : rvar) (HR2 : r2 < n),
+    wf_oper m n (zero m) (one n r1 ⨥ one n r2) (tup r1 r2)
 
 | wf_bng :
   forall m n
@@ -722,7 +736,8 @@ Definition rename_var (x:var) (y:var) (z:var) :=
 
 Definition rename_rvar_oper {n n'} (v : ren n n') (o:oper) :=
   match o with
-  | tup rs => tup (map v rs)
+  | emp => emp
+  | tup r1 r2 => tup (v r1) (v r2)
   | bng f => bng f
   | lam t => lam t
   end.
@@ -758,7 +773,8 @@ with rename_fvar_proc {m m'} (v : ren m m') (P : proc) : proc :=
 
 with rename_fvar_oper {m m'} (v : ren m m') (o : oper) : oper :=
        match o with
-       | tup rs => tup rs
+       | emp => emp
+       | tup r1 r2 => tup r1 r2
        | bng f => bng (v f)
        | lam t => lam (rename_fvar_term v t)
        end.
@@ -768,7 +784,6 @@ Lemma rename_rvar_oper_compose : forall n n' n'' (v1 : ren n n') (v2 : ren n' n'
 Proof.
   intros.
   destruct o; simpl; try reflexivity.
-  rewrite map_map. reflexivity.
 Qed.
 
 Lemma rename_rvar_proc_compose : forall n n' n'' (v1 : ren n n') (v2 : ren n' n'') (P : proc),
@@ -905,7 +920,8 @@ Proof.
   intros.
   destruct o; auto.
   inversion H; subst.
-  simpl. rewrite map_ren_id; auto.
+  simpl. rewrite ren_id_id; auto.
+  rewrite ren_id_id; auto.
 Qed.  
   
 Lemma rename_rvar_id_proc :
@@ -1019,12 +1035,19 @@ with peq_proc : forall (m n : nat) (bf : ren m m) (br : ren n n), proc -> proc -
     peq_proc m n bf br (par P1 P2) (par P1' P2')
              
 with peq_oper : forall (m n : nat) (bf : ren m m) (br : ren n n), oper -> oper -> Prop :=
-| peq_tup :
-  forall m n rs
-    (HRS : List.Forall (fun r => r < n) rs)
+| peq_emp :
+  forall m n
     (bf : ren m m)
     (br : ren n n),
-    peq_oper m n bf br (tup rs) (tup (List.map br rs))
+    peq_oper m n bf br emp emp
+
+| peq_tup :
+  forall m n
+    r1 (HR1 : r1 < n)
+    r2 (HR2 : r2 < n)
+    (bf : ren m m)
+    (br : ren n n),
+    peq_oper m n bf br (tup r1 r2) (tup (br r1) (br r2))
 
 | peq_bng :
   forall m n f (HF : f < m)
@@ -1105,9 +1128,13 @@ Proof.
   - inversion HT'.
     existT_eq. subst.
     econstructor; auto.
-  - inversion HT'.
-    existT_eq. subst.
-    rewrite map_map.
+  - inversion HT'; existT_eq; subst.
+    auto.
+  - inversion HT'; existT_eq; subst.
+    assert ((br' (br r1)) = ((ren_compose br br') r1)) by reflexivity.
+    rewrite H.
+    assert ((br' (br r2)) = ((ren_compose br br') r2)) by reflexivity.
+    rewrite H0.
     econstructor; auto.
   - inversion HT'.
     existT_eq. subst.
@@ -1172,21 +1199,15 @@ Proof.
     apply WFF; auto.
     apply WFR; auto.
   - constructor; auto.
-  - assert (rs = map (bij_inv br BR) (map br rs)).
-    { rewrite map_map.
-      rewrite <- (map_id rs) at 1.
-      eapply map_ext_Forall.
-      eapply Forall_impl.
-      2 : apply HRS.
-      intros.     
-      apply bij_ren_inv_elt; auto.
-    }
+  - constructor; auto.
+  - assert (r1 = ((bij_inv br BR) (br r1))).
+    { apply bij_ren_inv_elt; auto. }
     rewrite H at 2.
+    assert (r2 = ((bij_inv br BR) (br r2))).
+    { apply bij_ren_inv_elt; auto. }
+    rewrite H0 at 2.
     econstructor.
-    rewrite Forall_map.
-    eapply Forall_impl.
-    2 : apply HRS.
-    intros. auto.
+    apply WFR; auto.
     apply WFR; auto.
   - assert (f = ((bij_inv bf BF) (bf f))).
     { apply bij_ren_inv_elt; auto. }
@@ -1223,7 +1244,9 @@ Proof.
   - rewrite <- (ren_id_id m f) at 2; auto.
     rewrite <- (ren_id_id n r) at 2; auto.
   - econstructor; eauto.
-  - rewrite <- (map_ren_id rs n) at 2; auto. 
+  - auto.
+  - rewrite <- (ren_id_id n r1) at 2; auto.
+    rewrite <- (ren_id_id n r2) at 2; auto.
   - rewrite <- (ren_id_id m f) at 2; auto.
   - econstructor.
     auto.
@@ -1524,17 +1547,18 @@ Proof.
     rewrite ren_sum_compose.
     constructor; auto.
   - inversion H; existT_eq; subst.
-    rewrite ren_SUM_compose.
-    rewrite map_map.
+    rewrite ren_compose_zero.
+    rewrite ren_compose_zero.
+    constructor.
+  - inversion H; existT_eq; subst.
+    rewrite ren_sum_compose.
     rewrite ren_compose_zero.
     assert (wf_ren (bij_inv br HBR)) by (apply wf_bij_ren_inv; auto).
     assert (bij_ren (bij_inv br HBR)) by (apply bij_inv_bij; auto).
-    pose proof (map_ext_Forall_partial _ _ _ _ _ _ (ren_one_compose n (bij_inv br HBR) H0 X) HRS0).
-    setoid_rewrite H1.
+    rewrite ren_one_compose with (H := X); auto.
+    rewrite ren_one_compose with (H := X); auto.
     rewrite (bij_inv_bij_inv_eq _ br HWR HBR X).
-    rewrite <- map_map.
-    constructor.
-    apply Forall_ren_wf; auto.
+    constructor; apply HWR; auto.
   - inversion H; existT_eq; subst.
     assert (wf_ren (bij_inv bf HBF)) by (apply wf_bij_ren_inv; auto).
     assert (bij_ren (bij_inv bf HBF)) by (apply bij_inv_bij; auto).
@@ -1556,7 +1580,7 @@ Qed.
 (* cuts *)
 
 (* "removes" variable x from the scope, where n is the number of variables > x *)
-Definition cut n (x:var) : ren (x + 1 + n) (x + n) :=
+Definition strengthen n (x:var) : ren (x + 1 + n) (x + n) :=
   fun y =>
   if lt_dec y x then y
   else (y - 1).
@@ -1572,13 +1596,13 @@ Definition cut n (x:var) : ren (x + 1 + n) (x + n) :=
    Here, n is the number of variables in the original scope that are > y.
  *)
 Definition retract n x y : ren (y + 1 + n) (y + n) :=
-  @ren_compose (y + 1 + n) (y + 1 + n) _ (rename_var y x) (cut n y).
+  @ren_compose (y + 1 + n) (y + 1 + n) _ (rename_var y x) (strengthen n y).
 
-Definition cut_rvar_oper n x o : oper :=
-  rename_rvar_oper (cut n x) o.
+Definition strengthen_rvar_oper n x o : oper :=
+  rename_rvar_oper (strengthen n x) o.
   
-Definition cut_rvar_proc n x P : proc :=
-  rename_rvar_proc (cut n x) P.
+Definition strengthen_rvar_proc n x P : proc :=
+  rename_rvar_proc (strengthen n x) P.
 
 Definition retract_rvar_proc n x y P :=
   rename_rvar_proc (retract n x y) P.
@@ -1616,12 +1640,12 @@ Proof.
 
 Import ListNotations.
 Example ex_P0 : proc :=
-  (par (def 3 (tup ([2])))
-     (def 1 (tup ([4])))).
+  (par (def 3 (tup 2 2)))
+     (def 1 (tup 4 4)).
 
 Example ex_P : proc :=
-  par (def 0 (tup ([1;2])))
-    (par (def 0 (tup ([3;4])))
+  par (def 0 (tup 1 2))
+    (par (def 0 (tup 3 4))
        ex_P0).
 
 Eval compute in retract_rvar_proc 1 1 3 ex_P0.
