@@ -1650,48 +1650,6 @@ Example ex_P : proc :=
 
 Eval compute in retract_rvar_proc 1 1 3 ex_P0.
 
-(* (bag m n (par P (par (def r (tup rs1)) (def r (tup rs2))))) *)
-Inductive step_cuts : term -> term -> Prop :=
-| step_tup_nil :
-  forall m n P r,
-    step_cuts
-      (bag m (r + 1 + n) (par P (par (def r (tup nil)) (def r (tup nil)))))
-      (bag m (r + n) (cut_rvar_proc n r P))
-
-| step_tup_cons_l :
-  forall m n P r r1 r2 rs1 rs2 t'
-    (HLT: r1 < r2)
-    (HS: step_cuts (bag m (r2 + n)
-                  (retract_rvar_proc n r1 r2
-                     (par P (par (def r (tup rs1))
-                               (def r (tup rs2))))))
-               t'),
-    
-    (step_cuts (bag m (r2 + 1 + n) (par P (par (def r (tup (r1::rs1)))
-                                             (def r (tup (r2::rs2))))))
-       t')
-
-| step_tup_cons_r :
-  forall m n P r r1 r2 rs1 rs2 t'
-    (HLT: r2 < r1)
-    (HS: step_cuts (bag m (r1 + n)
-                  (retract_rvar_proc n r2 r1
-                     (par P (par (def r (tup rs1))
-                               (def r (tup rs2))))))
-               t'),
-    
-    (step_cuts (bag m (r1 + 1 + n) (par P (par (def r (tup (r1::rs1)))
-                                             (def r (tup (r2::rs2))))))
-       t').
-
-
-
-      
-  
-
-
-
-
 Definition ren_f_extrude m m' : ren (m + m') (m' + m) :=
   fun x =>
     if lt_dec x m' then x + m else (x - m').
@@ -1703,16 +1661,12 @@ Definition scope_extrude m m' n n' Q :=
 
 
 
-(*
-
-
-
 Inductive prim_step : term -> term -> Prop :=
-| step_tup_cut :
-  forall m n r rs1 rs2 P t,
-    step_cuts (r::rs1) (r::rs2) (bag m n P) = Some t ->
-    prim_step (bag m n (par P (par (def r (tup rs1)) (def r (tup rs2)))))
-      t
+| step_emp_cut :
+  forall m n r P,
+    prim_step
+      (bag m n (par P (par (def r emp) (def r emp))))
+      (bag m n P)
 
 | step_app :
   forall m m' n n' r r' f P Q,
@@ -1734,96 +1688,6 @@ Inductive  step : term -> term -> Prop :=
     t1 ≈t t1' ->
     prim_step t1' t2 ->
     step t1 t2.
-
-Lemma wf_cuts :
-  forall m (G : lctxt m) rrs n (ls1 : list var) (ls2 : list var) (D : lctxt n) (D1 : lctxt n) P
-    (HLS: split rrs = (ls1, ls2))
-    (HLS1 : Forall (fun x => x < n) ls1)
-    (HLS2 : Forall (fun x => x < n) ls2)
-    (UD' : forall x, x < n -> D x = 2)
-    (HD : D1 ⨥ (SUM (map (one n) ls1) ⨥ SUM (map (one n) ls2)) = D)
-    (WFP : wf_proc m n G D1 P),
-  exists (D'' : lctxt (n - length rrs)),
-    (forall x, x < (n - length rrs) -> D'' x = 2) /\
-      wf_proc m (n - length rrs) G D'' (rename_rvar_proc (cuts (n - length rrs) rrs) P).
-Proof.
-  induction rrs; intros; simpl in *.
-  - inversion HLS; clear HLS.
-    subst. simpl in *.
-    exists D1.
-    split.
-    + rewrite sum_zero_r in UD'.
-      intros. apply UD'. lia.
-    + replace (n-0) with n by lia.
-      rewrite rename_rvar_id_proc with (m := m); auto.
-      apply tpo_wf_ws in WFP.
-      assumption.
-  - destruct a as [r1 r2].
-    destruct (split rrs).
-    inversion HLS; clear HLS.
-    rewrite <- H0 in HLS1.
-    inversion HLS1. subst. clear HLS1.
-    inversion HLS2; subst. clear HLS2.
-    assert (forall x : nat, x < n -> (D1 ⨥ (SUM (map (one n) l) ⨥ SUM (map (one n) l0))) x = 2).
-    { intros.
-      specialize (UD' x H).
-      simpl in UD'.
-      
-      
-    
-    
-*)    
-  
-  
-  
-
-(*
-
-(* Do we care only about stepping a top-level term? *)
-Lemma prim_step_wf :
-  forall m (G : lctxt m) (D : lctxt 0) (t t' : term)
-    (WF : wf_term m 0 G D t)
-    (STEP : prim_step t t'),
-    wf_term m 0 G D t'.
-Proof.
-  intros.
-  inversion STEP; subst; clear STEP.
-  - inversion WF; existT_eq; subst; clear WF.
-    inversion WFP; existT_eq; subst; clear WFP.
-    inversion WFP2; existT_eq; subst; clear WFP2.
-    inversion WFP0; existT_eq; subst; clear WFP0.
-    inversion WFP3; existT_eq; subst; clear WFP3.
-    inversion WFO; existT_eq; subst; clear WFO.
-    inversion WFO0; existT_eq; subst; clear WFO0.
-    rewrite sum_zero_r in H2.
-    subst.
-    replace (n + 0) with n in * by lia.
-    unfold step_cuts in H.
-    destruct (Nat.eq_dec (length (r::rs1)) (length (r::rs2))).
-    2 : { inversion H. }
-    assert ((one n r ⨥ SUM (map (one n) rs1)) = SUM (map (one n) (r::rs1))).
-    { reflexivity. }
-    rewrite H0 in H3; clear H0.
-    assert ((one n r ⨥ SUM (map (one n) rs2)) = SUM (map (one n) (r::rs2))).
-    { reflexivity. }
-    rewrite H0 in H3; clear H0.
-    remember (r :: rs1) as ls1.
-    remember (r :: rs2) as ls2.
-    remember (combine ls1 ls2) as rrs.
-    assert (split rrs = (ls1, ls2)).
-    { rewrite Heqrrs. apply combine_split; auto. }
-
-
-
-    
-    
-    
-    subst.
-    
-*)    
-
-
-
 
 
 (* Canonical forms -- is it needed?  ----------------------------------- *)
@@ -1937,19 +1801,36 @@ with lt_proc : proc -> proc -> Prop :=
     lt_proc (par P P2) (par P P2')
 
 with lt_oper : oper -> oper -> Prop :=
-  
-| lt_tup_tup :
-  forall rs1 rs2,
-    lt_list rs1 rs2 ->
-    lt_oper (tup rs1) (tup rs2)
 
+| lt_emp_tup :
+  forall r1 r2,
+    lt_oper emp (tup r1 r2)
+
+| lt_emp_bng :
+  forall f,
+    lt_oper emp (bng f)
+
+| lt_emp_lam :
+  forall t,
+    lt_oper emp (lam t)
+            
+| lt_tup_tup1 :
+  forall r1 r2 r1' r2',
+    r1 < r1' ->
+    lt_oper (tup r1 r2) (tup r1' r2')
+
+| lt_tup_tup2 :
+  forall r r2 r2',
+    r2 < r2' ->
+    lt_oper (tup r r2) (tup r r2')
+            
 | lt_tup_bng :
-  forall rs f,
-    lt_oper (tup rs) (bng f)
+  forall r1 r2 f,
+    lt_oper (tup r1 r2) (bng f)
 
 | lt_tup_lam :
-  forall rs t,
-    lt_oper (tup rs) (lam t)
+  forall r1 r2 t,
+    lt_oper (tup r1 r2) (lam t)
 
 | lt_bng_bng :
   forall f1 f2,
@@ -1992,31 +1873,21 @@ Lemma lt_tpo_transitive :
           lt_oper o2 o3 ->
           lt_oper o1 o3).
 Proof.
-  apply lt_tpo_ind; intros; auto.
-  - inversion H; subst; auto.
-    apply lt_bag_m. lia.
+  apply lt_tpo_ind; intros; try inversion H; subst; eauto.
+  - apply lt_bag_m. lia.
   - inversion H; subst; auto.
     apply lt_bag_n. lia.
   - inversion H0; subst; auto.
   - inversion H; subst; auto.
     apply lt_def_def_r. lia.
   - inversion H0; subst; auto.
-  - inversion H; subst; auto.
-  - inversion H; subst; auto.
-  - inversion H; subst; auto.
-    apply lt_app_app_f. lia.
-  - inversion H; subst; auto.
-    apply lt_app_app_r. lia.
-  - inversion H; subst; auto.
+  - apply lt_app_app_f. lia.
+  - apply lt_app_app_r. lia.
   - inversion H0; subst; auto.
   - inversion H0; subst; auto.
-  - inversion H; subst; auto.
-    apply lt_tup_tup. eapply lt_list_transitive; eauto.
-  - inversion H; subst; auto.
-  - inversion H; subst; auto.
-  - inversion H; subst; auto.
-    apply lt_bng_bng. lia.
-  - inversion H; subst; auto.
+  - apply lt_tup_tup1. lia.
+  - apply lt_tup_tup2. lia.
+  - apply lt_bng_bng. lia.
   - inversion H0; subst; auto.
 Qed.
 
@@ -2076,13 +1947,24 @@ Proof.
         -- right. auto.
       * right. auto.
   - destruct o2.
-    + destruct (lt_list_lt_eq_lt_dec rs rs0) as [[HL | HE] | HG].
+    + left. right. reflexivity.
+    + left. left. auto.
+    + left. left. auto.
+    + left. left. auto.
+  - destruct o2.
+    + right. auto.
+    + destruct (lt_eq_lt_dec r1 r0) as [[HL | HE] | HG].
       * left. left. auto.
-      * subst. left. right. auto.
+      * subst.
+        destruct (lt_eq_lt_dec r2 r3) as [[HL' | HE'] | HG'].
+        -- left. left. auto.
+        -- subst. left. right. auto.
+        -- right. auto.
       * right. auto.
     + left. left. auto.
     + left. left. auto.
   - destruct o2.
+    + right. auto.
     + right. auto.
     + specialize (lt_eq_lt_dec f f0) as [[HL | HE] | HG].
       * left. left. auto.
@@ -2090,6 +1972,7 @@ Proof.
       * right. auto.
     + left. left. auto.
   - destruct o2.
+    + right. auto.
     + right. auto.
     + right. auto.
     + destruct (H t0) as [[HL | HE] | HG].
@@ -2122,10 +2005,14 @@ with
     ForallProc PT PP PO (par P1 P2)
 with
   ForallOper (PT : term -> Prop) (PP : proc -> Prop) (PO : oper -> Prop) : oper -> Prop :=
+| Forall_emp :
+  PO emp ->
+  ForallOper PT PP PO emp
+
 | Forall_tup :
-  forall rs,
-    PO (tup rs) ->
-    ForallOper PT PP PO (tup rs)
+  forall r1 r2,
+    PO (tup r1 r2) ->
+    ForallOper PT PP PO (tup r1 r2)
 
 | Forall_bng :
   forall f,
@@ -2180,9 +2067,12 @@ with canonical_proc : proc -> Prop :=
     canonical_proc (par (app f r) P)
                    
 with canonical_oper : oper -> Prop :=
+| can_emp :
+  canonical_oper emp
+                 
 | can_tup :
-  forall rs,
-    canonical_oper (tup rs)
+  forall r1 r2,
+    canonical_oper (tup r1 r2)
 
 | can_bng :
   forall f,
