@@ -19,7 +19,7 @@ Definition var := nat.
 
 Definition ctxt (n:nat) (X:Type) := var -> X.
 
-Definition cons {X:Type} {n:nat} (x:X) (c : ctxt n X) :=
+Definition cons {X:Type} {n:nat} (x:X) (c : ctxt n X) : ctxt (S n) X :=
   fun y =>
     match y with
     | 0 => x
@@ -34,6 +34,15 @@ Lemma tail_cons : forall  {X} {n} (l : ctxt (S n) X) (x:X),
 Proof.
   intros. reflexivity. 
 Qed.
+
+Lemma cons_tail : forall {X} {n} (l : ctxt (S n) X),
+    l = cons (l 0) (tail l).
+Proof.
+  intros.
+  apply functional_extensionality.
+  intros.
+  destruct x; auto.
+Qed.  
 
 Definition ctxt_app {X} {n m : nat} (c : ctxt n X) (d : ctxt m X) :  ctxt (n + m) X :=
   fun x =>
@@ -65,12 +74,63 @@ Proof.
   - contradiction.
 Qed.  
 
+(* Context append acts like a product with two "projections". *) 
+Definition ctxt_trim {X:Type} (m n : nat) (c : ctxt (m + n) X) : ctxt m X := c.
+
+Definition ctxt_retract {X:Type} (m n : nat) (c : ctxt (m + n) X ): ctxt n X :=
+  fun x => c (m + x).
+
+Lemma ctxt_app_trim_retract : forall m n X (c : ctxt (m + n) X),
+    c = (ctxt_trim m n c) ⊗ (ctxt_retract m n c).
+Proof.
+  intros.
+  unfold ctxt_app, ctxt_trim, ctxt_retract.
+  apply functional_extensionality.
+  intros x.
+  destruct (lt_dec x m); auto.
+  assert (m + (x - m) = x) by lia.
+  rewrite H.
+  reflexivity.
+Qed.
+
+Lemma ctxt_retract_app : forall m n X (c : ctxt m X) (d : ctxt n X),
+    ctxt_retract m n (c ⊗ d) = d.
+Proof.
+  intros.
+  unfold ctxt_app, ctxt_retract.
+  apply functional_extensionality.
+  intros x.
+  destruct (lt_dec (m + x) m).
+  - lia.
+  - assert (m + x - m = x) by lia.
+    rewrite H.
+    reflexivity.
+Qed.
+
+Lemma ctxt_trim_app : forall m n X (c : ctxt m X) (d : ctxt n X),
+  forall x,
+    x < m ->
+    ctxt_trim m n (c ⊗ d) x = c x.
+Proof.
+  intros.
+  unfold ctxt_app, ctxt_trim.
+  destruct (lt_dec x m).
+  - reflexivity.
+  - lia.
+Qed.
+
+Lemma ctxt_retract_1_is_tail :
+  forall X n (c : ctxt (1 + n) X),
+    tail c = ctxt_retract 1 n c.
+Proof.
+  intros.
+  reflexivity.
+Qed.
+  
 
 (* Linear contexts ---------------------------------------------------------- *)
 
-(* Theory of "linear" contexts that map variables (represented as autosubst's [fin n])
-   to their usage information.
-*)
+(* Theory of "linear" contexts that map variables to their usage information. *)
 
 (* The following definitions are about contexts of "usage" information as found in linear type systems. *)
 Definition lctxt (n:nat) := ctxt n nat.
@@ -127,11 +187,7 @@ Proof.
   intros. unfold sum. lia.
 Qed.
 
-(* 
-  [delta x c] is the context that maps x to c and everything else to 0
-
-  (* SAZ: we may be able to change this now that renamings are bounded *)
-*)
+(*  [delta x c] is the context that maps x to c and everything else to 0 *)
 
 Definition delta (n:nat) (x:var) (c : nat) : lctxt n :=
   fun y => if (Nat.eq_dec x y) then c else 0.
@@ -189,6 +245,18 @@ Definition one n (x : var) : lctxt n := n[x ↦ 1].
 
 Definition SUM {n} (l : list (lctxt n)) : lctxt n :=
   List.fold_right sum (zero n) l.
+
+Lemma SUM_app : forall n (l1 l2 : list (lctxt n)),
+    SUM (l1 ++ l2) = (SUM l1) ⨥ (SUM l2).
+Proof.
+  induction l1; auto.
+  intros.
+  simpl.
+  rewrite IHl1.
+  rewrite sum_assoc.
+  reflexivity.
+Qed.
+
 
 (* Renaming Relations ------------------------------------------------------- *)
 
@@ -1116,41 +1184,352 @@ End RelationalRenamings.
 
 Import ListNotations.
 
-Fixpoint down_from (n:nat) : list nat :=
+Lemma not_app_tl_empty : forall A (xs : list A) (x : A),
+    ~ [] = xs ++ [x].
+Proof.
+  intros.
+  intro H.
+  induction xs; auto.
+  - inversion H.
+  - inversion H.
+Qed.    
+
+Lemma list_app_tl_inv : forall A (xs ys : list A) (x y : A),
+    xs ++ [x] = ys ++ [y] ->
+    xs = ys /\ x = y.
+Proof.
+  induction xs; intros; auto.
+  - simpl in H.
+    destruct ys.
+    + inversion H. subst.
+      split; auto.
+    + inversion H.
+      subst.
+      apply not_app_tl_empty in H2.
+      contradiction.
+  - simpl in H.
+    destruct ys.
+    + inversion H. symmetry in H2.
+      apply not_app_tl_empty in H2.
+      contradiction.
+    + simpl in H.
+      inversion H; subst.
+      apply IHxs in H2.
+      destruct H2; subst.
+      split; auto.
+Qed.      
+
+
+(* We can canonically represent a (linear) context by a sequence of natural numbers. *)
+
+Definition lctxt_to_seq (n:nat) (c : lctxt n) : list nat :=
+  List.map c (seq 0 n).
+
+Definition seq_to_lctxt (n:nat) (l:list nat) : lctxt n :=
+  fun x => List.nth x l 0.
+
+Lemma lctxt_to_seq_inv :
+  forall n (c : lctxt n),
+    c n = 0 ->
+  forall x,
+    x < n ->
+    seq_to_lctxt n (lctxt_to_seq n c) x = c x.
+Proof.
+  intros.
+  unfold seq_to_lctxt, lctxt_to_seq.
+  rewrite <- H at 2.
+  rewrite map_nth.
+  rewrite seq_nth; auto.
+Qed.  
+  
+Lemma lctxt_to_seq_ext : forall n (c d : lctxt n),
+    (lctxt_to_seq n c = lctxt_to_seq n d) <->
+      (forall x, x < n -> c x = d x).
+Proof.
+  intros.
+  split; intros.
+  - induction n.
+    + lia.
+    + unfold lctxt_to_seq in H.
+      rewrite seq_S in H.
+      do 2 rewrite map_app in H.
+      simpl in H.
+      apply list_app_tl_inv in H.
+      destruct H as [HEQ EQ].
+      inversion H0.
+      * assumption.
+      * subst.
+        apply IHn in HEQ.
+        assumption.
+        lia.
+  - revert c d H.
+    induction n; intros.
+    + reflexivity.
+    + unfold lctxt_to_seq.
+      simpl.
+      rewrite <- seq_shift.
+      rewrite map_map.
+      rewrite map_map.
+      unfold lctxt_to_seq in IHn.
+      setoid_rewrite (IHn (fun x => c (S x)) (fun x => d (S x))).
+      rewrite H. reflexivity.
+      lia.
+      intros.
+      rewrite H. reflexivity.
+      lia.
+Qed.      
+      
+Fixpoint iter {A B} (elt : nat -> A) (base : B) (combine : A -> B -> B) (start len : nat) : B :=
+  match len with
+  | 0 => base
+  | S len0 => combine (elt start) (iter elt base combine (S start) len0)
+  end.
+
+Lemma iter_0 : 
+  forall A B (elt : nat -> A) (b : B) f start,
+    iter elt b f start 0 = b.
+Proof.
+  intros. reflexivity.
+Qed.  
+
+Lemma iter_cons :
+  forall A B (elt : nat -> A) (b : B) f start len,
+    f (elt start) (iter elt b f (1 + start) len) =
+      iter elt b f start (1 + len).
+Proof.
+  reflexivity.
+Qed.
+
+Lemma iter_ext :
+  forall A B (f g : nat -> A) (b : B) (combine : A -> B -> B) (start len : nat)
+    (HEQ : forall x, x < start + len -> f x = g x),
+    iter f b combine start len = iter g b combine start len.
+Proof.
+  intros. revert start HEQ.
+  induction len; intros.
+  - reflexivity.
+  - simpl.
+    assert (f start = g start). { apply HEQ.  lia. }
+    rewrite H.
+    rewrite IHlen.
+    reflexivity.
+    intros.
+    apply HEQ. lia.
+Qed.    
+
+(*
+Lemma iter_shift : forall A B (elt : nat -> A) (b : B) (f : A -> B -> B)  offs start len,
+    iter elt b f (offs + start) len =
+      iter (fun x => elt (offs + x)) b f start len.
+Proof.
+  induction offs; intros.
+  - reflexivity.
+  - simpl.
+    replace (S (offs + start)) with (offs + S start) by lia.
+*)    
+
+
+Lemma iter_f_plus : forall A B m n i (elt : nat -> A) (b : B) (f : A -> B -> B),
+    iter elt b f i (m + n) =
+      iter elt (iter elt b f (i + m) n) f i m.
+Proof.
+  induction m; intros.
+  - simpl.
+    replace (i + 0) with i by lia.
+    reflexivity.
+  - simpl.
+    rewrite IHm.
+    replace (S i + m) with (i + S m) by lia.
+    reflexivity.
+Qed.    
+
+(* iterates through a context starting at [start] *)
+Definition ctxt_iter {X B} {n:nat} (c : ctxt n X) (base : B) (combine : X -> B -> B) (start:nat) : B :=
+  iter c base combine start (n - start).
+
+Lemma ctxt_iter_end :
+  forall X B n (c : ctxt n X) (b:B) (combine : X -> B -> B),
+    ctxt_iter c b combine n = b.
+Proof.
+  intros.
+  unfold ctxt_iter.
+  replace (n - n) with 0 by lia.
+  apply iter_0.
+Qed.  
+
+Lemma ctxt_iter_ext :
+  forall X B (n:nat) (c d : ctxt n X) (b:B) (combine : X -> B -> B) (start:nat)
+    (HS : start < n)
+    (HEQ : forall x, x < n -> c x = d x),
+    ctxt_iter c b combine start = ctxt_iter d b combine start.
+Proof.
+  intros.
+  unfold ctxt_iter.
+  apply iter_ext.
+  intros.
+  apply HEQ.
+  lia.
+Qed.  
+
+(*
+Lemma cxt_iter_trim_retract :
+  forall X B (m n:nat) (c : ctxt (m + n) X) (b : B) (combine : X -> B -> B) (start : nat),
+    ctxt_iter c b combine start =
+      ctxt_iter (ctxt_trim m n c) (ctxt_iter (ctxt_retract m n c) b combine 0) combine start.
+Proof.
+  intros.
+  unfold ctxt_trim, ctxt_iter, ctxt_retract.
+  destruct (lt_dec start m).
+  - replace (m + n - start) with ((m - start) + n) by lia.
+    rewrite iter_f_plus.
+    replace (n - 0) with n by lia.
+    replace (start + (m - start)) with m by lia.
+    
+    replace (n - (m - start)) with (n + start - m) by lia.
+    admit.
+  - replace (m - start) with 0 by lia.
+    rewrite iter_0.
+    
+    replace (n - n) with 0 by lia.
+    rewrite iter_0.
+    
+    
+    
+  
+  
+  destruct (lt_dec start (m + n)).
+  - 
+    + replace (m + n - start) with ((m - start) + n) by lia.
+      rewrite iter_f_app.
+      replace (start + (m - start)) with m by lia.
+      replace (n - (m - start + n)) with 0 by lia.
+      rewrite iter_0.
+      
+
+
+Lemma iter_ctxt_app : forall X B m n i (c : ctxt m X) (d : ctxt n X) (b : B) (f : X -> B -> B),
+    ctxt_iter (c ⊗ d) b f i =
+      ctxt_iter c (ctxt_iter d b f 0) f i.  
+Proof.
+  intros.
+  destruct (lt_dec i m).
+  - rewrite (ctxt_app_trim_retract _ _ _ (c ⊗ d)).
+    unfold ctxt_iter at 1.
+    replace (m + n - i) with ((m - i) + n) by lia.
+    rewrite iter_f_app.
+    replace (i + (m - i)) with m by lia.
+    rewrite ctxt_retract_app.
+    unfold ctxt_iter.
+    
+*)    
+
+
+(*
+Lemma lctxt_to_seq_ext' : forall n (c d : lctxt n),
+    forall i, 
+    (lctxt_to_seq i n c = lctxt_to_seq i n d) <->
+      (forall x, (i + x) < n -> c (i + x) = d (i + x)).
+Proof.
+  induction n; intros; split; intros.
+  - lia.
+  - reflexivity.
+  - unfold lctxt_to_seq in H.
+    simpl in H. seq
+    inversion H0.
+    destruct x.
+    * replace (i + 0) with i by lia.
+      assumption.
+    * replace (i + S x) with ((S i) + x) by lia.
+      
+
+      apply H3.
+      
+      
+      * apply IHn. 
+      
+      simpl in H.
+      apply list_app_tl_inv in H.
+      destruct H as [HEQ EQ].
+      inversion H0.
+      * inversion EQ.
+        subst. reflexivity.
+      * subst.
+        apply IHn in HEQ.
+        assumption.
+        lia.
+  - revert c d H.
+    induction n; intros.
+    + reflexivity.
+    + unfold lctxt_to_list.
+      simpl.
+      do 2 rewrite map_app.
+      simpl.
+      unfold lctxt_to_list in IHn.
+      setoid_rewrite (IHn c d).
+      rewrite (H n); try lia.
+      reflexivity.
+      intros. apply H; lia.
+Qed.
+  
+*)
+
+
+
+Fixpoint up_to (n:nat) : list nat :=
   match n with
   | 0 => []
-  | S n => n::(down_from n)
+  | S n => (up_to n) ++ [n]
   end.
 
 (* Could map between general lists and context, but this may be all we need? *)
 Definition lctxt_to_list (n:nat) (c : lctxt n) : list (var * nat) :=
-  List.map (fun x => (x, c x)) (down_from n).
+  List.map (fun x => (x, c x)) (up_to n).
 
-Definition list_to_lctxt (n:nat) (l : list (var * nat)) : lctxt n :=
+Definition list_to_lctxt_SUM (n:nat) (l : list (var * nat)) : lctxt n :=
   SUM (List.map (fun '(x,i) => delta n x i) l).
 
+Definition var_list_to_lctxt_SUM (n:nat) (rs : list var) :=
+  list_to_lctxt_SUM n (map (fun x => (x,1)) rs).
+
 Lemma lctxt_to_list_S : forall (n:nat) (c : lctxt (S n)),
-    lctxt_to_list (S n) c = (n,c n)::lctxt_to_list n c.
+    lctxt_to_list (S n) c = (lctxt_to_list n c)++[(n,c n)].
 Proof.
   intros.
+  unfold lctxt_to_list.
+  simpl.
+  rewrite map_app.
   reflexivity.
 Qed.  
 
-Lemma list_to_lctxt_hd : forall n x d l,
-    list_to_lctxt (S n) ((x,d)::l) = (S n)[x ↦ d] ⨥ (list_to_lctxt n l).
+Lemma list_to_lctxt_SUM_hd : forall n x d l,
+    list_to_lctxt_SUM (S n) ((x,d)::l) = (S n)[x ↦ d] ⨥ (list_to_lctxt_SUM n l).
 Proof.
   intros.
-  unfold list_to_lctxt.
+  unfold list_to_lctxt_SUM.
   simpl. reflexivity.
 Qed.  
 
-Lemma list_to_lctxt_0 : forall n (c : lctxt n) x,
+Lemma list_to_lctxt_SUM_tl : forall n x d l,
+    list_to_lctxt_SUM (S n) (l++[(x,d)]) = (list_to_lctxt_SUM n l) ⨥ (S n)[x ↦ d].
+Proof.
+  intros.
+  unfold list_to_lctxt_SUM.
+  setoid_rewrite map_app.
+  rewrite SUM_app.
+  simpl.
+  rewrite sum_zero_r.
+  reflexivity.
+Qed.  
+
+
+
+Lemma list_to_lctxt_SUM_0 : forall n (c : lctxt n) x,
     n <= x ->
-    list_to_lctxt n (lctxt_to_list n c) x = 0.
+    list_to_lctxt_SUM n (lctxt_to_list n c) x = 0.
 Proof.
   induction n; intros; simpl in *; auto.
   rewrite lctxt_to_list_S.
-  rewrite list_to_lctxt_hd.
+  rewrite list_to_lctxt_SUM_tl.
   unfold sum.
   unfold delta.
   destruct (Nat.eq_dec n x); try lia.
@@ -1162,19 +1541,83 @@ Qed.
 
 Lemma lctxt_to_list_inc : forall n (c : lctxt n),
     forall x, x < n ->
-    list_to_lctxt n (lctxt_to_list n c) x = c x.
+    list_to_lctxt_SUM n (lctxt_to_list n c) x = c x.
 Proof.
   induction n; simpl.
   - intros. inversion H.
   - intros.
     rewrite lctxt_to_list_S.
-    rewrite list_to_lctxt_hd.
+    rewrite list_to_lctxt_SUM_tl.
     unfold delta, sum.
     destruct (Nat.eq_dec n x).
     subst.
-    rewrite list_to_lctxt_0; auto.
-    rewrite IHn. reflexivity. lia. 
+    rewrite list_to_lctxt_SUM_0; auto.
+    rewrite IHn; lia. 
 Qed.
+
+
+      
+Lemma lctxt_to_list_ext : forall n (c d : lctxt n),
+    (lctxt_to_list n c = lctxt_to_list n d) <->
+      (forall x, x < n -> c x = d x).
+Proof.
+  intros.
+  split; intros.
+  - induction n.
+    + lia.
+    + unfold lctxt_to_list in H.
+      simpl in H.
+      do 2 rewrite map_app in H.
+      simpl in H.
+      apply list_app_tl_inv in H.
+      destruct H as [HEQ EQ].
+      inversion H0.
+      * inversion EQ.
+        subst. reflexivity.
+      * subst.
+        apply IHn in HEQ.
+        assumption.
+        lia.
+  - revert c d H.
+    induction n; intros.
+    + reflexivity.
+    + unfold lctxt_to_list.
+      simpl.
+      do 2 rewrite map_app.
+      simpl.
+      unfold lctxt_to_list in IHn.
+      setoid_rewrite (IHn c d).
+      rewrite (H n); try lia.
+      reflexivity.
+      intros. apply H; lia.
+Qed.
+
+(* [cs] is a list of counts. The i'th element of the list is the
+   usage for the i'th de Bruijn variable.
+ *)
+Fixpoint list_to_lctxt_app (cs : list nat) : lctxt (length cs) :=
+  match cs with
+  | [] => zero 0
+  | c::cs' => @ctxt_app _ 1 (length cs') (delta 1 0 c) (list_to_lctxt_app cs')
+  end.
+
+(*
+Lemma list_to_lctxt_SUM_app :
+  forall (lc : list (var * nat))
+    (cs : list nat)
+    (HLC : List.split lc = (up_to (length cs), cs)),
+    forall x,
+      x < (length cs) ->
+      (list_to_lctxt_SUM (length cs) lc) x =
+        (list_to_lctxt_app cs x).
+Proof.
+*)        
+      
+
+      
+    
+
+
 
 (*           R
   k0 <- 0        0 -> j0
