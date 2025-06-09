@@ -1660,6 +1660,90 @@ Definition scope_extrude m m' n n' Q :=
     Q2.
 
 
+(*
+P |
+r <- (r1, r2)
+r <- (r1', r2')
+
+if r1 = r1' then
+  if r2 = r2' then
+    ren_id
+  else
+    rename_var r2 r2'
+else
+ (* r1 <> r1' *)
+ if r1 = r2 then
+   if r1' = r2' then
+     ren_id
+   else
+     rename_var r1' r2'
+ else
+   if r1' = r2' then
+   rename r1 r2
+ else
+   ren_compose (rename r1 r1') (rename r2 r2')
+
+
+*) 
+
+Definition cut_renaming n (r1 r2 r1' r2':nat) : ren n n :=
+  if Nat.eq_dec r1 r1' then
+    if Nat.eq_dec r2 r2' then
+      ren_id n
+    else
+      rename_var r2 r2'
+  else
+    if Nat.eq_dec r1 r2 then
+      if Nat.eq_dec r1' r2' then
+        ren_id n
+      else
+        rename_var r1' r2'
+    else
+      if Nat.eq_dec r1' r2' then
+        rename_var r1 r2
+      else
+        @ren_compose n n nat (rename_var r1 r1') (rename_var r2 r2').
+
+
+Lemma wf_prim_step_emp :
+  forall m m' n n' r P (G : lctxt m),
+    wf_term m n G (zero n) (bag m' n' (par P (par (def r emp) (def r emp)))) ->
+    wf_term m n G (zero n) (bag m' n' P).
+Proof.
+  intros.
+  inversion H; existT_eq; subst; clear H.
+  inversion WFP; existT_eq; subst; clear WFP.
+  inversion WFP2; existT_eq; subst; clear WFP2.
+  inversion WFP0; existT_eq; subst; clear WFP0.
+  inversion WFP3; existT_eq; subst; clear WFP3.
+  inversion WFO; existT_eq; subst; clear WFO.
+  inversion WFO0; existT_eq; subst; clear WFO0.
+  rewrite sum_zero_r in H1.
+  rewrite sum_zero_r in H2.
+  unfold one in H2.
+  rewrite delta_sum in H2.
+  apply sum_app_inv in H2.
+  destruct H2 as (DA1 & DA2 & DB1 & DB2 & EQ1 & EQ2 & EQ3 & EQ4).
+  subst.
+  assert (DB1 = zero n). { apply sum_zero_inv_l in EQ4. assumption. }
+  assert (DB2 = zero n). { apply sum_zero_inv_r in EQ4. assumption. }
+  clear EQ4.
+  subst.
+  simpl in EQ2.
+  apply wf_bag with (G' := G')(D' := DA1); auto.
+  assert (r < n'). { apply app_delta_zero_inv_lt in EQ2; auto. }
+  assert (forall z, z < n' ->
+               n'[r ↦ 2] z = DA2 z).
+  { intros. apply app_delta_zero_inv_ctxt with (z:=z) in EQ2; auto. }
+  intros x HX.
+Admitted.  
+
+
+
+    
+  
+  
+
 
 Inductive prim_step : term -> term -> Prop :=
 | step_emp_cut :
@@ -1668,6 +1752,12 @@ Inductive prim_step : term -> term -> Prop :=
       (bag m n (par P (par (def r emp) (def r emp))))
       (bag m n P)
 
+| step_tup_cut :
+  forall m n r r1 r2 r1' r2' P,
+    prim_step
+      (bag m n (par P (par (def r (tup r1 r2)) (def r (tup r1' r2')))))
+      (bag m n (rename_rvar_proc (cut_renaming n r1 r2 r1' r2') P))
+      
 | step_app :
   forall m m' n n' r r' f P Q,
     let Q' := retract_rvar_proc (m + m') r' m (scope_extrude m m' n n' Q) in
