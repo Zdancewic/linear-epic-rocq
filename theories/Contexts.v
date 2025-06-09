@@ -1732,7 +1732,7 @@ Proof.
   - rewrite lctxt_sum.
     reflexivity.
 Qed.    
-    
+
 Lemma lctxt_S_retract : forall n (D : lctxt (S n)),
     D = @ctxt_app _ 1 n 1[0 ↦ D(0)] (ctxt_retract 1 n D).
 Proof.
@@ -1902,3 +1902,24 @@ Proof.
   destruct (lt_dec z m); auto.
   destruct (Nat.eq_dec x z); try lia.
 Qed.
+
+
+Lemma delta_app_zero_r :
+  forall m n x y,
+    x < m ->
+    (@ctxt_app _ m n (m[x ↦ y]) (zero n)) = (m + n)[x ↦ y].
+Proof.
+  intros.
+  apply functional_extensionality.
+  unfold ctxt_app, delta, zero.
+  intros x0.
+  destruct (lt_dec x0 m).
+  - reflexivity.
+  - destruct (Nat.eq_dec x x0).
+    + subst.
+      contradiction.
+    + reflexivity.
+Qed.
+
+
+    
