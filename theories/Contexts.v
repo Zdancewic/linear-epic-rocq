@@ -1921,5 +1921,27 @@ Proof.
     + reflexivity.
 Qed.
 
+Lemma delta_app_zero_l :
+  forall m n x y,
+    x < m ->
+    (@ctxt_app _ n m (zero n) (m[x ↦ y]) ) = (n + m)[(n + x) ↦ y].
+Proof.
+  intros.
+  apply functional_extensionality.
+  unfold ctxt_app, delta, zero.
+  intros x0.
+  destruct (lt_dec x0 n).
+  - destruct (Nat.eq_dec (n + x) x0).
+    + lia.
+    + reflexivity.
+  - destruct (Nat.eq_dec x (x0 - n)).
+    + destruct (Nat.eq_dec (n + x) x0); auto.
+      lia.
+    + destruct (Nat.eq_dec (n + x) x0); auto.
+      lia.
+Qed.
+
+
+
 
     
