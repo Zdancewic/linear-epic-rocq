@@ -1722,6 +1722,7 @@ Proof.
   rewrite sum_zero_r in H2.
   unfold one in H2.
   rewrite delta_sum in H2.
+  simpl in H2.
   apply sum_app_inv in H2.
   destruct H2 as (DA1 & DA2 & DB1 & DB2 & EQ1 & EQ2 & EQ3 & EQ4).
   subst.
@@ -1729,20 +1730,33 @@ Proof.
   assert (DB2 = zero n). { apply sum_zero_inv_r in EQ4. assumption. }
   clear EQ4.
   subst.
-  simpl in EQ2.
   apply wf_bag with (G' := G')(D' := DA1); auto.
   assert (r < n'). { apply app_delta_zero_inv_lt in EQ2; auto. }
   assert (forall z, z < n' ->
                n'[r ↦ 2] z = DA2 z).
   { intros. apply app_delta_zero_inv_ctxt with (z:=z) in EQ2; auto. }
   intros x HX.
+  destruct (Nat.eq_dec x r).
+  - subst. assert (DA2 r = 2). { rewrite <- H0; auto. apply delta_id. }
+    apply UD' in HX.
+    destruct HX.
+    + right. rewrite lctxt_sum in H2. lia.
+    + rewrite lctxt_sum in H2. lia.
+  - assert (DA2 x = 0). { rewrite <- H0; auto. apply delta_neq; auto. }
+    apply UD' in HX.
+    destruct HX.
+    + rewrite lctxt_sum in H2. lia.
+    + rewrite lctxt_sum in H2. lia.
+Qed.      
+
+Lemma wf_prim_step_tup :
+  forall m n r r1 r2 r1' r2' P (G : lctxt m),
+    wf_term m n G (zero n) (bag m n (par P (par (def r (tup r1 r2)) (def r (tup r1' r2'))))) ->
+    wf_term m n G (zero n) (bag m n (rename_rvar_proc (cut_renaming n r1 r2 r1' r2') P)).
+Proof.
+  intros.
 Admitted.  
 
-
-
-    
-  
-  
 
 
 Inductive prim_step : term -> term -> Prop :=
