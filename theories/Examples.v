@@ -234,8 +234,75 @@ Proof. intros m n. apply ws_bag. apply ws_par.
         apply ws_tup; lia.
 Qed.
 
+Lemma delta_dist : forall {n} x y z w,
+  x < n -> (n[x ↦ y] ⨥ n[x ↦ z])w = n[x ↦ y]w + n[x ↦ z]w.
+Proof. intros. destruct w.
+  - destruct x. 
+    + assert ((n [0 ↦ y] ⨥ n [0 ↦ z]) = n [0 ↦ y + z]). { apply delta_sum. }
+      rewrite H0; apply delta_id. 
+    + assert ((n [S x ↦ y] ⨥ n [S x ↦ z]) = n [S x ↦ y + z]). { apply delta_sum. }
+      rewrite H0; apply delta_neq; lia.
+  - destruct x. 
+    + assert ((n [0 ↦ y] ⨥ n [0 ↦ z]) = n [0 ↦ y + z]). { apply delta_sum. }
+      rewrite H0; apply delta_neq; lia.
+    + assert ((n [S x ↦ y] ⨥ n [S x ↦ z]) = n [S x ↦ y + z]). { apply delta_sum. }
+      rewrite H0; clear H0. assert ((S w) = (S x) \/ ~((S w) = (S x))) by lia. destruct H0. 
+        * rewrite H0. assert (n [S x ↦ y] (S x) = y). { apply delta_id. } 
+          rewrite H1; clear H1. 
+          assert (n [S x ↦ z] (S x) = z). { apply delta_id. } 
+          rewrite H1; clear H1. apply delta_id.
+        * assert (n [S x ↦ y] (S w) = 0). { apply delta_neq; lia. } 
+          rewrite H1; clear H1. 
+          assert (n [S x ↦ z] (S w) = 0). { apply delta_neq; lia. } 
+          rewrite H1; clear H1. apply delta_neq; lia.
+Qed.
+     
+
 Theorem tup_in_tup_is_wf : forall m n,
     0 < m /\ 0 < n -> wf_term m n (zero m) (zero n) tup_in_tup.
 Proof. intros m n H. destruct H as [Hm Hn].
-eapply wf_bag with (G' := zero m) (D' := (SUM (n[0 ↦ 2] :: n[1 ↦ 2] :: n[2 ↦ 2] :: n[3 ↦ 2] :: n[4 ↦ 2] :: n[5 ↦ 2] :: nil))).
+eapply wf_bag with (G' := zero m) (D' := (n[0 ↦ 2] ⨥ n[1 ↦ 2] ⨥ n[2 ↦ 2] ⨥ n[3 ↦ 2] ⨥ n[4 ↦ 2] ⨥ n[5 ↦ 2])). 
+- intros x H. inversion H.
+- intros x H. inversion H.  
+  + assert ((((((n [0 ↦ 2] ⨥ n [1 ↦ 2]) ⨥ n [2 ↦ 2]) ⨥ n [3 ↦ 2]) ⨥ n [4 ↦ 2]) ⨥ n [5 ↦ 2]) 5 = 2).
+    { unfold sum. simpl. apply delta_id. }
+    rewrite H0; lia.
+  + inversion H1. 
+    assert ((((((n [0 ↦ 2] ⨥ n [1 ↦ 2]) ⨥ n [2 ↦ 2]) ⨥ n [3 ↦ 2]) ⨥ n [4 ↦ 2]) ⨥ n [5 ↦ 2]) 4 = 2).
+    { unfold sum. simpl.
+      replace (S (S (n [5 ↦ 2] 4))) with ((n [5 ↦ 2] 4) + 2) by lia. 
+      assert (n [5 ↦ 2] 4 = 0) by (apply delta_neq; lia). 
+      rewrite H2; lia. }
+    rewrite H2; lia. clear m0 H1 H0.
+    inversion H3.
+    assert ((((((n [0 ↦ 2] ⨥ n [1 ↦ 2]) ⨥ n [2 ↦ 2]) ⨥ n [3 ↦ 2]) ⨥ n [4 ↦ 2]) ⨥ n [5 ↦ 2]) 3 = 2).
+    { unfold sum. simpl.
+      replace (S (S (n [5 ↦ 2] 3))) with ((n [5 ↦ 2] 3) + 2) by lia. 
+      assert (n [5 ↦ 2] 3 = 0) by (apply delta_neq; lia). 
+      rewrite H0; lia. }
+    rewrite H0; lia. clear m1 H3 H2.
+    inversion H1. 
+    assert ((((((n [0 ↦ 2] ⨥ n [1 ↦ 2]) ⨥ n [2 ↦ 2]) ⨥ n [3 ↦ 2]) ⨥ n [4 ↦ 2]) ⨥ n [5 ↦ 2]) 2 = 2).
+    { unfold sum. simpl.
+      replace (S (S (n [5 ↦ 2] 2))) with ((n [5 ↦ 2] 2) + 2) by lia. 
+      assert (n [5 ↦ 2] 2 = 0) by (apply delta_neq; lia). 
+      rewrite H2; lia. }
+    rewrite H2; lia. clear m0 H1 H0. 
+    inversion H3.
+    assert ((((((n [0 ↦ 2] ⨥ n [1 ↦ 2]) ⨥ n [2 ↦ 2]) ⨥ n [3 ↦ 2]) ⨥ n [4 ↦ 2]) ⨥ n [5 ↦ 2]) 1 = 2).
+    { unfold sum. simpl.
+      replace (S (S (n [5 ↦ 2] 1))) with ((n [5 ↦ 2] 1) + 2) by lia. 
+      assert (n [5 ↦ 2] 1 = 0) by (apply delta_neq; lia). 
+      rewrite H0; lia. }
+    rewrite H0; lia. clear m1 H3 H2. 
+    inversion H1.
+    assert ((((((n [0 ↦ 2] ⨥ n [1 ↦ 2]) ⨥ n [2 ↦ 2]) ⨥ n [3 ↦ 2]) ⨥ n [4 ↦ 2]) ⨥ n [5 ↦ 2]) 0 = 2).
+    { unfold sum. simpl.
+      replace (S (S (n [5 ↦ 2] 0))) with ((n [5 ↦ 2] 0) + 2) by lia. 
+      assert (n [5 ↦ 2] 0 = 0) by (apply delta_neq; lia). 
+      rewrite H2; lia. }
+    rewrite H2; lia. clear m0 H1 H0.
+    inversion H3.
+-
+
 Admitted.
