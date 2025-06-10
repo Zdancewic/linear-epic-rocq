@@ -1732,9 +1732,8 @@ Proof.
   subst.
   apply wf_bag with (G' := G')(D' := DA1); auto.
   assert (r < n'). { apply app_delta_zero_inv_lt in EQ2; auto. }
-  assert (forall z, z < n' ->
-               n'[r ↦ 2] z = DA2 z).
-  { intros. apply app_delta_zero_inv_ctxt with (z:=z) in EQ2; auto. }
+  assert (n'[r ↦ 2] ≡[n'] DA2).
+  { intros. apply app_delta_zero_inv_ctxt in EQ2; auto. }
   intros x HX.
   destruct (Nat.eq_dec x r).
   - subst. assert (DA2 r = 2). { rewrite <- H0; auto. apply delta_id. }
@@ -1749,50 +1748,104 @@ Proof.
     + rewrite lctxt_sum in H2. lia.
 Qed.      
 
+
 Lemma wf_prim_step_tup :
-  forall m n r r1 r2 r1' r2' P (G : lctxt m),
-    wf_term m n G (zero n) (bag m n (par P (par (def r (tup r1 r2)) (def r (tup r1' r2'))))) ->
-    wf_term m n G (zero n) (bag m n (rename_rvar_proc (cut_renaming n r1 r2 r1' r2') P)).
+  forall m m' n n' r r1 r2 r1' r2' P (G : lctxt m),
+    wf_term m n G (zero n) (bag m' n' (par P (par (def r (tup r1 r2)) (def r (tup r1' r2'))))) ->
+    wf_term m n G (zero n) (bag m' n' (rename_rvar_proc (cut_renaming (n' + n) r1 r2 r1' r2') P)).
 Proof.
   intros.
-Admitted.  
+  inversion H; existT_eq; subst; clear H.
+  inversion WFP; existT_eq; subst; clear WFP.
+  inversion WFP2; existT_eq; subst; clear WFP2.
+  inversion WFP0; existT_eq; subst; clear WFP0.
+  inversion WFP3; existT_eq; subst; clear WFP3.
+  inversion WFO; existT_eq; subst; clear WFO.
+  inversion WFO0; existT_eq; subst; clear WFO0.
+  rewrite sum_zero_r in H1.
+  unfold one in H2.
+  eapply sum_app_inv in H2.
+  destruct H2 as (DA1 & DA2 & DB1 & DB2 & EQ1 & EQ2 & EQ3 & EQ4).
+  assert (DB1 = zero n). { apply sum_zero_inv_l in EQ4. assumption. }
+  assert (DB2 = zero n). { apply sum_zero_inv_r in EQ4. assumption. }
+  clear EQ4.
+  subst.
+  assert (forall x,
+        x < n' ->
+        DA2 x = ((n')[r ↦ 2] ⨥ ((n')[r1 ↦ 1] ⨥ ((n') [r1' ↦ 1] ⨥ ((n') [r2 ↦ 1] ⨥ (n') [r2' ↦ 1])))) x).
+  { eapply lctxt_sum_3_inv1. apply EQ2. } 
+  clear EQ2.
+  unfold cut_renaming.
+  destruct (Nat.eq_dec r1 r1'); subst.
+  - destruct (Nat.eq_dec r2 r2'); subst.
+    + rewrite (@rename_rvar_id_proc _ (m' + m) (n' + n)).
+      * apply wf_bag with (G' := G')(D' := DA1); auto.
+        intros x HX.
+        specialize (H x HX).
+        specialize (UD' x HX).
+        unfold sum in *.
+        unfold delta in H.
+        repeat match goal with
+               | H : context [Nat.eq_dec ?R1 ?R2] |- _ => destruct (Nat.eq_dec R1 R2)
+               end; try lia.
+      * eapply tpo_wf_ws; eauto.
+    +
+(*      
+      r1 <> r2 ->
+      forall x, x < n' ->
+           (x = r1 /\ D x = 1) \/
+             ( x = r2 /\ D x = 1) \/
+             
+      wf_proc (m' + m) (n' + n) (G' ⊗ G) (D ⊗ zero n) P
+      
+  - destruct (Nat.eq_dec r1 r2); subst.
+    + destruct (Nat.eq_dec r1' r2'); subst.
+      * rewrite (@rename_rvar_id_proc _ (m' + m) (n' + n)).
+        -- 
+        -- eapply tpo_wf_ws; eauto.
+           
+    
+*)  
+
+  
+Admitted.
 
 
 
-Inductive prim_step : term -> term -> Prop :=
+
+Inductive prim_step : nat -> nat -> term -> term -> Prop :=
 | step_emp_cut :
-  forall m n r P,
-    prim_step
-      (bag m n (par P (par (def r emp) (def r emp))))
-      (bag m n P)
+  forall m m' n n' r P,
+    prim_step m n
+      (bag m' n' (par P (par (def r emp) (def r emp))))
+      (bag m' n' P)
 
 | step_tup_cut :
-  forall m n r r1 r2 r1' r2' P,
-    prim_step
-      (bag m n (par P (par (def r (tup r1 r2)) (def r (tup r1' r2')))))
-      (bag m n (rename_rvar_proc (cut_renaming n r1 r2 r1' r2') P))
+  forall m m' n n' r r1 r2 r1' r2' P,
+    prim_step m n
+      (bag m' n' (par P (par (def r (tup r1 r2)) (def r (tup r1' r2')))))
+      (bag m' n' (rename_rvar_proc (cut_renaming (n' + n) r1 r2 r1' r2') P))
       
 | step_app :
-  forall m m' n n' r r' f P Q,
-    let Q' := retract_rvar_proc (m + m') r' m (scope_extrude m m' n n' Q) in
-    prim_step
-      (bag m n
+  forall m m' m'' n n' n'' r r' f P Q,
+    let Q' := retract_rvar_proc (m' + m'') r' m' (scope_extrude m' m'' n' n'' Q) in
+    prim_step m n
+      (bag m' n'
          (par P
-         (par (def r (lam (bag m' n' Q)))
+         (par (def r (lam (bag m'' n'' Q)))
          (par (def r (bng f))
               (app f r')))))
-      (bag (m' + m) (n' + n)
+      (bag (m' + m'') (n' + n'')
          (par P
-         (par (def r (lam (bag m' n' Q)))
+         (par (def r (lam (bag m'' n'' Q)))
          (par (def r (bng f))
               Q')))).
 
-Inductive  step : term -> term -> Prop :=
-| step_equiv : forall t1 t1' t2,
+Inductive  step : nat -> nat -> term -> term -> Prop :=
+| step_equiv : forall m n t1 t1' t2,
     t1 ≈t t1' ->
-    prim_step t1' t2 ->
-    step t1 t2.
-
+    prim_step m n t1' t2 ->
+    step m n t1 t2.
 
 (* Canonical forms -- is it needed?  ----------------------------------- *)
 

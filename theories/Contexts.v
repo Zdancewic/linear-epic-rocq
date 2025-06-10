@@ -10,14 +10,39 @@ From Stdlib Require Import
 
 Import Relation_Definitions.
 
-From LEpic Require Import Permutations.
-
 (* deBruijn indices *)
 Definition var := nat.
 
 (* Contexts ----------------------------------------------------------------- *)
 
 Definition ctxt (n:nat) (X:Type) := var -> X.
+
+Definition ctxt_eq {X} n (c d : ctxt n X) :=
+  forall x, x < n -> c x = d x.
+
+Infix "≡[ n ]" := (ctxt_eq n) (at level 70).
+
+#[global] Instance refl_ctxt_eq : forall X n, Reflexive (@ctxt_eq X n).
+Proof.
+  intros. repeat red.
+  intros. unfold ctxt_eq in *.
+  split; intros; auto.
+Qed.
+
+#[global] Instance sym_ctxt_eq : forall X n, Symmetric (@ctxt_eq X n).
+Proof.
+  intros. repeat red.
+  intros. unfold ctxt_eq in *.
+  rewrite H; tauto.
+Qed.
+
+#[global] Instance trans_ctxt_eq : forall X n, Transitive (@ctxt_eq X n).
+Proof.
+  intros. repeat red.
+  intros. unfold ctxt_eq in *.
+  rewrite <- H0; auto. 
+Qed.
+
 
 Definition cons {X:Type} {n:nat} (x:X) (c : ctxt n X) : ctxt (S n) X :=
   fun y =>
@@ -26,8 +51,29 @@ Definition cons {X:Type} {n:nat} (x:X) (c : ctxt n X) : ctxt (S n) X :=
     | S y => c y
     end.
 
+Import ProperNotations.
+
+#[global] Instance cons_Proper {X} {n} : Proper (eq ==> (@ctxt_eq X n) ==> (@ctxt_eq X (S n))) cons.
+Proof.
+  repeat red; intros.
+  unfold ctxt_eq in H0.
+  unfold cons.
+  destruct x1; auto.
+  rewrite H0; auto. lia.
+Qed.  
+
 Definition tail {X} {n} (c : ctxt (S n) X) : ctxt n X :=
   fun x => c (S x).
+
+#[global] Instance tail_Proper {X} {n} : Proper ((@ctxt_eq X (S n)) ==> (@ctxt_eq X n)) tail.
+Proof.
+  repeat red.
+  intros.
+  unfold ctxt_eq in H.
+  unfold tail.
+  assert ((S x0) < (S n)) by lia.
+  rewrite H; auto.
+Qed.  
 
 Lemma tail_cons : forall  {X} {n} (l : ctxt (S n) X) (x:X),
     tail (cons x l) = l.
@@ -64,10 +110,9 @@ Proof.
 Qed.  
 
 Lemma ctxt_app_l : forall {X} {n m} (c : ctxt n X) (d : ctxt m X),
-    forall (x:nat), (x < n) -> 
-    (c ⊗ d) x = c x.
+    (c ⊗ d) ≡[n] c.
 Proof.
-  unfold ctxt_app.
+  unfold ctxt_app, ctxt_eq.
   intros.
   destruct (lt_dec x n).
   - reflexivity.
@@ -111,8 +156,27 @@ Qed.
 (* Context append acts like a product with two "projections". *) 
 Definition ctxt_trim {X:Type} (m n : nat) (c : ctxt (m + n) X) : ctxt m X := c.
 
+#[global] Instance Proper_ctxt_trim {X m n} : Proper ((@ctxt_eq X (m + n)) ==> (@ctxt_eq X m)) (@ctxt_trim X m n).
+Proof.
+  repeat red.
+  intros.
+  unfold ctxt_eq in H.
+  unfold ctxt_trim.
+  rewrite H; auto. lia.
+Qed.  
+
 Definition ctxt_retract {X:Type} (m n : nat) (c : ctxt (m + n) X ): ctxt n X :=
   fun x => c (m + x).
+
+#[global] Instance Proper_ctxt_retract {X m n} : Proper ((@ctxt_eq X (m + n)) ==> (@ctxt_eq X n)) (@ctxt_retract X m n).
+Proof.
+  repeat red.
+  intros.
+  unfold ctxt_eq in H.
+  unfold ctxt_retract.
+  rewrite H; auto.
+  lia.
+Qed.  
 
 Lemma ctxt_app_trim_retract : forall m n X (c : ctxt (m + n) X),
     c = (ctxt_trim m n c) ⊗ (ctxt_retract m n c).
@@ -142,12 +206,10 @@ Proof.
 Qed.
 
 Lemma ctxt_trim_app : forall m n X (c : ctxt m X) (d : ctxt n X),
-  forall x,
-    x < m ->
-    ctxt_trim m n (c ⊗ d) x = c x.
+    ctxt_trim m n (c ⊗ d) ≡[m] c.
 Proof.
+  unfold ctxt_app, ctxt_trim, ctxt_eq.
   intros.
-  unfold ctxt_app, ctxt_trim.
   destruct (lt_dec x m).
   - reflexivity.
   - lia.
@@ -172,6 +234,13 @@ Definition lctxt (n:nat) := ctxt n nat.
 Definition sum {n} (c : lctxt n) (d : lctxt n) : lctxt n :=
   fun x => (c x) + (d x).
 
+#[global] Instance Proper_sum {n} : Proper ((@ctxt_eq nat n) ==> (@ctxt_eq nat n) ==> (@ctxt_eq nat n)) (@sum n).
+Proof.
+  repeat red.
+  unfold ctxt_eq, sum; intros.
+  auto.
+Qed.  
+  
 Infix "⨥" := (@sum _) (at level 50).
 
 Definition zero n : lctxt n := fun (x:nat) => 0.
@@ -953,7 +1022,8 @@ Definition wf_ren {n m:nat} (r : ren n m) :=
 Definition ren_eq (n m:nat) (r1 r2 : ren n m) :=
   forall x y, x < n -> (r1 x y <-> r2 x y).
 
-Infix "≡[ n , m ]" := (ren_eq n m).
+
+Infix "≡[ n , m ]" := (ren_eq n m) (at level 70).
 
 #[global] Instance refl_ren_eq : forall n m, Reflexive (ren_eq n m).
 Proof.
@@ -1270,12 +1340,10 @@ Definition seq_to_lctxt (n:nat) (l:list nat) : lctxt n :=
 Lemma lctxt_to_seq_inv :
   forall n (c : lctxt n),
     c n = 0 ->
-  forall x,
-    x < n ->
-    seq_to_lctxt n (lctxt_to_seq n c) x = c x.
+    (seq_to_lctxt n (lctxt_to_seq n c)) ≡[n] c.
 Proof.
+  unfold seq_to_lctxt, lctxt_to_seq, ctxt_eq.
   intros.
-  unfold seq_to_lctxt, lctxt_to_seq.
   rewrite <- H at 2.
   rewrite map_nth.
   rewrite seq_nth; auto.
@@ -1596,9 +1664,9 @@ Proof.
 Qed.
 
 Lemma lctxt_to_list_SUM_eq : forall n (c : lctxt n),
-    forall x, x < n ->
-    list_to_lctxt_SUM n (lctxt_to_list n c) x = c x.
+    list_to_lctxt_SUM n (lctxt_to_list n c) ≡[n] c.
 Proof.
+  unfold ctxt_eq.
   induction n; simpl.
   - intros. inversion H.
   - intros.
@@ -1613,8 +1681,9 @@ Qed.
 
 Lemma lctxt_to_list_ext : forall n (c d : lctxt n),
     (lctxt_to_list n c = lctxt_to_list n d) <->
-      (forall x, x < n -> c x = d x).
+      c ≡[n] d.
 Proof.
+  unfold ctxt_eq.
   intros.
   split; intros.
   - induction n.
@@ -1698,9 +1767,9 @@ Proof.
 Qed.  
 
 Lemma lctxt_to_list_app_eq : forall n (c : lctxt n),
-    forall x, x < n ->
-    list_to_lctxt_app (lctxt_to_list n c) x = c x.
+    list_to_lctxt_app (lctxt_to_list n c) ≡[n] c.
 Proof.
+  unfold ctxt_eq.
   induction n; simpl; intros.
   - lia.
   - rewrite lctxt_to_list_S.
@@ -1774,8 +1843,9 @@ Qed.
 Lemma ctxt_app_inv_l :
   forall {X} n m (c1 c2 : ctxt n X)  (d1 d2 : ctxt m X),
     (c1 ⊗ d1) = (c2 ⊗ d2) ->
-    forall x, x < n -> (c1 x) = (c2 x).
+    c1 ≡[n] c2.
 Proof.
+  unfold ctxt_eq.
   intros.
   assert ((c1 ⊗ d1) x = (c2 ⊗ d2) x).
   { rewrite H. reflexivity. }
@@ -1784,9 +1854,10 @@ Qed.
 
 
 Lemma ctxt_app_ext_l : forall X n m (c1 c2 : ctxt n X) (d : ctxt m X),
-    (forall x, x < n -> c1 x = c2 x) ->
+    (c1 ≡[n] c2) ->
     c1 ⊗ d = c2 ⊗ d.
 Proof.
+  unfold ctxt_eq.
   intros.
   apply functional_extensionality.
   intros x.
@@ -1893,14 +1964,14 @@ Lemma app_delta_zero_inv_ctxt :
     x < m + n ->
     (m + n)[x ↦ y] = c ⊗ (zero n)
     ->
-      forall z, z < m ->
-           m[x ↦ y] z = c z.
+      (m[x ↦ y]) ≡[m] c.
 Proof.
+  unfold ctxt_eq.
   intros.
-  apply fun_apply with (x:=z) in H1.
+  apply fun_apply with (x:=x0) in H1.
   unfold delta, ctxt_app, zero in H1.
-  destruct (lt_dec z m); auto.
-  destruct (Nat.eq_dec x z); try lia.
+  destruct (lt_dec x0 m); auto.
+  destruct (Nat.eq_dec x x0); try lia.
 Qed.
 
 
@@ -1941,6 +2012,28 @@ Proof.
       lia.
 Qed.
 
+Ltac destruct_Nat_eq_decs :=
+  match goal with
+    [ |- ctxt(Nat.eq_dec ?R1 ?R2) ] => destruct (Nat.eq_dec R1 R2)
+  end.
+
+
+Lemma lctxt_sum_3_inv1 : forall n' n r r1 r2 r1' r2' (D : lctxt n'),
+    ((n' + n) [r ↦ 1] ⨥ ((n' + n) [r1 ↦ 1] ⨥ (n' + n) [r2 ↦ 1]))
+      ⨥ ((n' + n) [r ↦ 1] ⨥ ((n' + n) [r1' ↦ 1] ⨥ (n' + n) [r2' ↦ 1])) = D ⊗ zero n
+    ->
+        D ≡[n'] ((n')[r ↦ 2] ⨥ ((n')[r1 ↦ 1] ⨥ ((n') [r1' ↦ 1] ⨥ ((n') [r2 ↦ 1] ⨥ (n') [r2' ↦ 1])))).
+Proof.
+  unfold ctxt_eq.
+  intros.
+  apply fun_apply with (x:=x) in H.
+  unfold ctxt_app, delta, sum in *.
+  destruct (lt_dec x n').
+  repeat match goal with
+    | |- context [Nat.eq_dec ?R1 ?R2] => destruct (Nat.eq_dec R1 R2)
+  end; try lia.
+  contradiction.
+Qed.
 
 
 
