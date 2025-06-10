@@ -102,7 +102,9 @@ Qed.
 Lemma delta_app_zero_r : forall m n x y, 
                       x < m -> 
                       (@ctxt_app _ m n (m[x ↦ y]) (zero n)) = (m + n)[x ↦ y].
-Proof. intros. apply functional_extensionality. unfold ctxt_app, delta, zero. intros x0. destruct (lt_dec x0 m).
+Proof. intros. apply functional_extensionality. 
+unfold ctxt_app, delta, zero. 
+intros x0. destruct (lt_dec x0 m).
   - reflexivity.
   - destruct (Nat.eq_dec x x0).
     subst.
@@ -132,6 +134,7 @@ Lemma n_is_0_implies_zero_0 : forall x y,
 Proof. intros. subst. unfold delta, zero. 
 Admitted.
 
+
 (* Work-in-progress...
 
 Current thoughts/issues: 
@@ -140,9 +143,8 @@ Current thoughts/issues:
 - Showing distributivity of '⊗ (zero n)' over '⨥' was tedious. I might be missing something,
 or mayber there is a useful lemma here.
 
-! Still unable to apply wf_par after refactoring to get contexts with '⨥' not '⊗'. I thought
-the issue was that wf_par expects G1, G2 and D1, D2 to (respectively) have the 'same size'. 
-However, the error that actually appears is 'Unable to unify "n + n" with "3 + n".' 
+! eapply wf_bag with (G' := (1)[0 ↦ 1]) (D' :=  (3[0 ↦ 2] ⨥ 3[1 ↦ 2] ⨥ 3[2 ↦ 2])) ???
+This is how I was able to apply wf_par in the simple tuples example (see below).
 *)
 Theorem id_ex_is_wf : forall m n, 
     0 < m /\ 2 < n -> wf_term m n (zero m) (zero n) id_ex.
@@ -155,12 +157,12 @@ eapply wf_bag with  (G' := m[0 ↦ 1]) (D' :=  (n[0 ↦ 2] ⨥ n[1 ↦ 2] ⨥ n[
       { apply delta_app_zero_r. assumption. } 
       assert (H' : ((m + m) [0 ↦ 1]) = ((m + m) [0 ↦ 1]) ⨥ (zero m)). 
       { apply delta_add_zero. lia. }
-      replace ((m + m) [0 ↦ 1]) with ((m + m) [0 ↦ 1] ⨥ zero m) in H. clear H'. 
-      replace (m [0 ↦ 1] ⊗ zero m) with ((m + m) [0 ↦ 1] ⨥ zero m). 
+      replace ((m + m) [0 ↦ 1]) with ((m + m) [0 ↦ 1] ⨥ zero (m+m)) in H. clear H'. 
+      replace (m [0 ↦ 1] ⊗ zero m) with ((m + m) [0 ↦ 1] ⨥ zero (m+m)). 
       assert ((zero n) = (zero n) ⨥ (zero n)). 
       { unfold zero, sum. simpl. reflexivity. }
       assert (@ctxt_app _ n n (n[0 ↦ 2] ⨥ n[1 ↦ 2] ⨥ n[2 ↦ 2]) (zero n)
-               = (((n + n)[0 ↦ 2] ⨥ (n + n)[1 ↦ 2] ⨥ (n + n)[2 ↦ 2]) ⨥ (zero n))).
+               = (((n + n)[0 ↦ 2] ⨥ (n + n)[1 ↦ 2] ⨥ (n + n)[2 ↦ 2]) ⨥ (zero (n+n)))).
       { replace (zero n) with ((zero n) ⨥ (zero n)).
         assert (((@ctxt_app _ n n (n [0 ↦ 2] ⨥ n [1 ↦ 2]) (zero n)) ⨥ (n [2 ↦ 2] ⊗ zero n))
                 = @ctxt_app _ n n ((n [0 ↦ 2] ⨥ n [1 ↦ 2]) ⨥ n [2 ↦ 2]) (zero n ⨥ zero n)).
@@ -181,58 +183,27 @@ eapply wf_bag with  (G' := m[0 ↦ 1]) (D' :=  (n[0 ↦ 2] ⨥ n[1 ↦ 2] ⨥ n[
         replace (@ctxt_app _ n n (n [1 ↦ 2]) (zero n)) with ((n + n) [1 ↦ 2]) in H1. clear H2.
         assert ((@ctxt_app _ n n (n [2 ↦ 2]) (zero n)) = (n + n)[2 ↦ 2]). { apply delta_app_zero_r. lia. }
         replace (@ctxt_app _ n n (n [2 ↦ 2]) (zero n)) with ((n + n) [2 ↦ 2]) in H1. clear H2.
-        assert (((((n + n) [0 ↦ 2] ⨥ (n + n) [1 ↦ 2]) ⨥ (n + n) [2 ↦ 2]) ⨥ (zero n))
+        assert (((((n + n) [0 ↦ 2] ⨥ (n + n) [1 ↦ 2]) ⨥ (n + n) [2 ↦ 2]) ⨥ (zero (n+n)))
                 = (((n + n) [0 ↦ 2] ⨥ (n + n) [1 ↦ 2]) ⨥ (n + n) [2 ↦ 2])).
         { apply sum_zero_gen_r with (c := (((n + n) [0 ↦ 2] ⨥ (n + n) [1 ↦ 2]) ⨥ (n + n) [2 ↦ 2])). }
         replace (((n + n) [0 ↦ 2] ⨥ (n + n) [1 ↦ 2]) ⨥ (n + n) [2 ↦ 2]) with 
-                ((((n + n) [0 ↦ 2] ⨥ (n + n) [1 ↦ 2]) ⨥ (n + n) [2 ↦ 2]) ⨥ zero n) in H1. clear H2.
-        replace (zero n ⨥ zero n) with (zero n). replace (zero n ⨥ zero n) with (zero n) in H1. 
+                ((((n + n) [0 ↦ 2] ⨥ (n + n) [1 ↦ 2]) ⨥ (n + n) [2 ↦ 2]) ⨥ zero (n+n)) in H1. clear H2.
+        replace (zero n ⨥ zero n) with (zero n). 
         symmetry; assumption. 
         }
         replace (((n [0 ↦ 2] ⨥ n [1 ↦ 2]) ⨥ n [2 ↦ 2]) ⊗ zero n) with 
-                ((((n + n) [0 ↦ 2] ⨥ (n + n) [1 ↦ 2]) ⨥ (n + n) [2 ↦ 2]) ⨥ zero n).
-        (* Commented this out as it is still throwing the error noted above.
-        
+                ((((n + n) [0 ↦ 2] ⨥ (n + n) [1 ↦ 2]) ⨥ (n + n) [2 ↦ 2]) ⨥ zero (n+n)).
+        (* The issue is that, to apply wf_par, not only do we need G1, G2 and D1, D2 to, respectively
+        have the same size, but this needs to match the m, n given as args to wf_proc.
+
         apply wf_par with (G1 := ((m + m) [0 ↦ 1])) (G2 := (zero m)) 
                           (D1 := (((n + n) [0 ↦ 2] ⨥ (n + n) [1 ↦ 2]) ⨥ (n + n) [2 ↦ 2]))
                           (D2 := (zero n)).
         *)
-
 Admitted.
   
 
 (* Tuples in tuples *)
-
-(* nu {} {r_0, r_1, r_2, r_3, r_4, r_5} :
-r_4 <- (r_0, r_1)
-r_1 <- (r_0, r_2)
-r_2 <- (r_0, r_0) 
-r_5 <- (r_0, r_4) 
-
-... trying to have r_5 of the form (r_0, (r_0, (r_0, (r_0, r_0)))) 
-*)
-
-Example tup_in_tup : term := 
-bag 0 6 
-  (par (def 4 (tup 0 1))
-       (par (def 1 (tup 0 2))
-            (par (def 2 (tup 0 0))
-                 (def 5 (tup 0 4))))).
-
-Theorem tup_in_tup_is_ws : forall m n,
-    ws_term m n tup_in_tup.
-Proof. intros m n. apply ws_bag. apply ws_par. 
-  - apply ws_def. lia. 
-    apply ws_tup; lia.
-  - apply ws_par.
-    + apply ws_def. lia. 
-      apply ws_tup; lia.
-    + apply ws_par.
-      * apply ws_def. lia. 
-        apply ws_tup; lia.
-      * apply ws_def. lia. 
-        apply ws_tup; lia.
-Qed.
 
 Lemma delta_dist : forall {n} x y z w,
   x < n -> (n[x ↦ y] ⨥ n[x ↦ z])w = n[x ↦ y]w + n[x ↦ z]w.
@@ -256,8 +227,139 @@ Proof. intros. destruct w.
           assert (n [S x ↦ z] (S w) = 0). { apply delta_neq; lia. } 
           rewrite H1; clear H1. apply delta_neq; lia.
 Qed.
-     
 
+Lemma sum_assoc_rev : forall {n} (c : lctxt n) (d : lctxt n) (e : lctxt n),
+    (d ⨥ e) ⨥ c = d ⨥ (e ⨥ c).
+Proof.
+  intros. apply functional_extensionality.
+  intros. unfold sum. lia.
+Qed.
+
+Example tup_simple : term :=
+bag 0 3
+  (par (def 1 (tup 0 0))
+       (def 2 (tup 0 1))).
+(* nu {} {r_0, r_1, r_2}
+r_1 <- (r_0, r_0)
+r_2 <- (r_0, r_1)
+*)
+
+Theorem tup_simple_is_ws : forall m n,
+  ws_term m n tup_simple.
+Proof. intros m n. apply ws_bag; apply ws_par.
+  - apply ws_def. lia.
+    apply ws_tup. lia. lia.
+  - apply ws_def. lia.
+    apply ws_tup. lia. lia.
+Qed.
+
+Theorem tup_simple_is_wf : forall m n,
+  0 < m /\ 0 < n -> wf_term m n (zero m) (zero n) tup_simple.
+Proof. intros m n H. destruct H as [Hm Hn]. 
+eapply wf_bag with (G' := zero 0) (D' := 3[0 ↦ 2] ⨥ 3[1 ↦ 2] ⨥ 3[2 ↦ 2]).
+- intros x H. inversion H.
+- intros x H. inversion H. 
+  + assert (((3 [0 ↦ 2] ⨥ 3 [1 ↦ 2]) ⨥ 3 [2 ↦ 2]) 2 = 2). 
+    { unfold sum. simpl. apply delta_id. }
+    rewrite H0. lia.
+  + inversion H1. assert (((3 [0 ↦ 2] ⨥ 3 [1 ↦ 2]) ⨥ 3 [2 ↦ 2]) 1 = 2).
+    { unfold sum. simpl. 
+      replace (S (S (3 [2 ↦ 2] 1))) with ((3 [2 ↦ 2] 1) + 2) by lia.  
+      assert (3 [2 ↦ 2] 1 = 0) by (apply delta_neq; lia). 
+      rewrite H2; lia. }
+    rewrite H2. lia.
+    inversion H3. assert (((3 [0 ↦ 2] ⨥ 3 [1 ↦ 2]) ⨥ 3 [2 ↦ 2]) 0 = 2).
+    { unfold sum. simpl. 
+      replace (S (S (3 [2 ↦ 2] 0))) with ((3 [2 ↦ 2] 0) + 2) by lia.  
+      assert (3 [2 ↦ 2] 0 = 0) by (apply delta_neq; lia). 
+      rewrite H4; lia. }
+    rewrite H4; lia.
+    inversion H5.
+- assert ((@ctxt_app _ 0 m (zero 0) (zero m)) = (zero (0+m))).
+  { unfold zero, ctxt_app. apply functional_extensionality. intros x.
+    destruct (lt_dec x m). reflexivity. reflexivity.  }
+  replace (zero 0 ⊗ zero m) with ((zero m) ⨥ (zero m)). clear H. 
+  assert (@ctxt_app _ 3 n (3[0 ↦ 2] ⨥ 3[1 ↦ 2] ⨥ 3[2 ↦ 2]) (zero n)
+               = (((3 + n)[0 ↦ 2] ⨥ (3 + n)[1 ↦ 2] ⨥ (3+ n)[2 ↦ 2]) ⨥ (zero (3+n)))).
+  { replace (zero n) with ((zero n) ⨥ (zero n)).
+    assert (((@ctxt_app _ 3 n (3[0 ↦ 2] ⨥ 3[1 ↦ 2]) (zero n)) ⨥ (3[2 ↦ 2] ⊗ zero n))
+                = @ctxt_app _ 3 n ((3[0 ↦ 2] ⨥ 3[1 ↦ 2]) ⨥ 3[2 ↦ 2]) (zero n ⨥ zero n)).
+    { apply lctxt_sum_app_dist with (D11 := ((3[0 ↦ 2] ⨥ 3[1 ↦ 2]))) (D21 := (3[2 ↦ 2]))
+                                    (D12 := (zero n)) (D22 := (zero n)). } 
+    replace (((3 [0 ↦ 2] ⨥ 3 [1 ↦ 2]) ⨥ 3 [2 ↦ 2]) ⊗ (zero n ⨥ zero n)) with 
+            ((@ctxt_app _ 3 n (3[0 ↦ 2] ⨥ 3[1 ↦ 2]) (zero n)) ⨥ (3[2 ↦ 2] ⊗ zero n)).
+    clear H. replace (zero n) with ((zero n) ⨥(zero n)).
+    assert (((@ctxt_app _ 3 n (3[0 ↦ 2]) (zero n)) ⨥ (@ctxt_app _ 3 n (3[1 ↦ 2]) (zero n))) 
+                = (@ctxt_app _ 3 n (3[0 ↦ 2] ⨥ 3[1 ↦ 2]) ((zero n) ⨥ (zero n)))).
+        { apply lctxt_sum_app_dist with (D11 := (3[0 ↦ 2])) (D21 := (3[1 ↦ 2]))
+                                        (D12 := (zero n)) (D22 := (zero n)). }
+    replace (@ctxt_app _ 3 n (3[0 ↦ 2] ⨥ 3[1 ↦ 2]) ((zero n) ⨥ (zero n))) with 
+            ((@ctxt_app _ 3 n (3[0 ↦ 2]) (zero n)) ⨥ (@ctxt_app _ 3 n (3[1 ↦ 2]) (zero n))).
+    clear H.
+    replace ((zero n) ⨥(zero n)) with (zero n).
+    assert ((@ctxt_app _ 3 n (3[0 ↦ 2]) (zero n)) = (3 + n)[0 ↦ 2]). { apply delta_app_zero_r. lia. }
+    replace (@ctxt_app _ 3 n (3[0 ↦ 2]) (zero n)) with ((3 + n) [0 ↦ 2]). clear H.
+    assert ((@ctxt_app _ 3 n (3[1 ↦ 2]) (zero n)) = (3 + n)[1 ↦ 2]). { apply delta_app_zero_r. lia. }
+    replace (@ctxt_app _ 3 n (3[1 ↦ 2]) (zero n)) with ((3 + n) [1 ↦ 2]). clear H.
+    assert ((@ctxt_app _ 3 n (3[2 ↦ 2]) (zero n)) = (3 + n)[2 ↦ 2]). { apply delta_app_zero_r. lia. }
+    replace (@ctxt_app _ 3 n (3[2 ↦ 2]) (zero n)) with ((3 + n) [2 ↦ 2]). clear H.
+    symmetry. apply sum_zero_gen_r with (c := (((3 + n) [0 ↦ 2] ⨥ (3 + n) [1 ↦ 2]) ⨥ (3 + n) [2 ↦ 2])).
+    symmetry. apply sum_zero_r. apply sum_zero_r. apply sum_zero_r. }
+  rewrite H. clear H. 
+  apply wf_par with (G1 := zero m) (G2 := zero m)
+                    (D1 := (((3 + n) [0 ↦ 2] ⨥ (3 + n) [1 ↦ 2]) ⨥ (3 + n) [2 ↦ 2])) (D2 := zero (3 + n)).
+    + assert ((((3 + n) [0 ↦ 2] ⨥ (3 + n) [1 ↦ 2]) ⨥ (3 + n) [2 ↦ 2]) = 
+              (one (3 + n) 1) ⨥ ((3 + n)[0 ↦ 2] ⨥ (3 + n)[1 ↦ 1] ⨥ (3 + n)[2 ↦ 2])).
+      { assert ((3 + n) [1 ↦ 1] ⨥ (3 + n) [1 ↦ 1] = (3 + n) [1 ↦ 2]). apply delta_sum. 
+        unfold one. 
+        assert ((3 + n) [1 ↦ 1] ⨥ (((3 + n) [0 ↦ 2] ⨥ (3 + n) [1 ↦ 1]) ⨥ (3 + n) [2 ↦ 2]) = 
+                ((3 + n) [1 ↦ 1] ⨥ ((3 + n) [0 ↦ 2] ⨥ (3 + n) [1 ↦ 1])) ⨥ (3 + n) [2 ↦ 2]).
+        apply sum_assoc. rewrite H0. clear H0.
+        assert (((3 + n) [1 ↦ 1] ⨥ ((3 + n) [0 ↦ 2] ⨥ (3 + n) [1 ↦ 1])) = 
+                (((3 + n) [1 ↦ 1] ⨥ (3 + n) [0 ↦ 2]) ⨥ (3 + n) [1 ↦ 1])).
+        apply sum_assoc. rewrite H0; clear H0.
+        assert (((3 + n) [1 ↦ 1] ⨥ (3 + n) [0 ↦ 2]) = 
+                ((3 + n) [0 ↦ 2] ⨥ (3 + n) [1 ↦ 1])). 
+        apply sum_commutative. rewrite H0. clear H0.
+        assert ((((3 + n) [0 ↦ 2] ⨥ (3 + n) [1 ↦ 1]) ⨥ (3 + n) [1 ↦ 1]) =
+                ((3 + n) [0 ↦ 2] ⨥ ((3 + n) [1 ↦ 1] ⨥ (3 + n) [1 ↦ 1]))). 
+        apply sum_assoc_rev. rewrite H0; clear H0.
+        rewrite H. reflexivity. }
+    rewrite H. apply wf_def. lia.
+Admitted.
+    
+                    
+
+(* nu {} {r_0, r_1, r_2, r_3, r_4, r_5} :
+r_4 <- (r_0, r_1)
+r_1 <- (r_0, r_2)
+r_2 <- (r_0, r_0) 
+r_5 <- (r_0, r_4) 
+
+... trying to have r_5 of the form (r_0, (r_0, (r_0, (r_0, r_0)))) 
+*)
+Example tup_in_tup : term := 
+bag 0 6 
+  (par (def 4 (tup 0 1))
+       (par (def 1 (tup 0 2))
+            (par (def 2 (tup 0 0))
+                 (def 5 (tup 0 4))))).
+
+Theorem tup_in_tup_is_ws : forall m n,
+    ws_term m n tup_in_tup.
+Proof. intros m n. apply ws_bag. apply ws_par. 
+  - apply ws_def. lia. 
+    apply ws_tup; lia.
+  - apply ws_par.
+    + apply ws_def. lia. 
+      apply ws_tup; lia.
+    + apply ws_par.
+      * apply ws_def. lia. 
+        apply ws_tup; lia.
+      * apply ws_def. lia. 
+        apply ws_tup; lia.
+Qed.
+     
 Theorem tup_in_tup_is_wf : forall m n,
     0 < m /\ 0 < n -> wf_term m n (zero m) (zero n) tup_in_tup.
 Proof. intros m n H. destruct H as [Hm Hn].
@@ -303,6 +405,5 @@ eapply wf_bag with (G' := zero m) (D' := (n[0 ↦ 2] ⨥ n[1 ↦ 2] ⨥ n[2 ↦ 
       rewrite H2; lia. }
     rewrite H2; lia. clear m0 H1 H0.
     inversion H3.
--
-
+- (* Currently losing a war of attrition with this proof. *)
 Admitted.
