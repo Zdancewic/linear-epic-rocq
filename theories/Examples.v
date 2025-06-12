@@ -14,16 +14,18 @@ From LEpic Require Import Contexts.
 (* Playing around with ws and seq definitions... *)
 Example ws_term_example : term :=
   (bag 2 3 
-    (par (def 2 (lam (bag 1 2 (par (app 0 0) 
+    (par (def 2 (lam (bag 1 2 (par (app 0 1) 
                                    (def 1 (tup 0 0))))))
          (par (app 0 1)
-              (def 1 (bng 1))))).
+              (par (def 1 (bng 1))
+                   (def 2 emp))))).
 (* nu {f, f'} {r_a, r_b, r_c} :
     r_c <- lam r_0 {f''} {r_0, r_1}
-           f'' r_0
+           f'' r_1
            r_1 <- (r_0, r_0)
-    f r_a
+    f r_b
     r_b <- !f'
+    r_c <- emp
 *)
 
 Theorem ws_term_example_is_ws :
@@ -37,8 +39,11 @@ Proof. apply ws_bag. simpl. apply ws_par.
     apply ws_tup. lia. lia.
   - apply ws_par. 
     + apply ws_app. lia. lia.
-    + apply ws_def. lia. 
-      apply ws_bng. lia.
+    + apply ws_par. 
+      * apply ws_def. lia.
+        apply ws_bng. lia.
+      * apply ws_def. lia.
+        apply ws_emp.
 Qed.
 
 (* Sanity check *)
@@ -49,39 +54,55 @@ Proof. apply seq_bag. apply seq_proc_refl. Qed.
 (* Commuting par's to make a structually equivalent term... *)
 Example seq_to_ws_example : term :=
   (bag 2 3 
-    (par (par (def 1 (bng 1))
+    (par (par (par (def 1 (bng 1))
+                   (def 2 emp))
               (app 0 1))
-         (def 2 (lam (bag 1 2 (par (app 0 0) 
+         (def 2 (lam (bag 1 2 (par (app 0 1) 
                                    (def 1 (tup 0 0)))))))).
 
 Theorem is_seq_to_ws_example :
   seq_term seq_to_ws_example ws_term_example.
 Proof. apply seq_bag. 
   assert (H0 : seq_proc
-          (par (def 1 (bng 1)) (app 0 1))
-          (par (app 0 1) (def 1 (bng 1)))).
+          (par (par (def 1 (bng 1)) (def 2 emp)) (app 0 1))
+          (par (app 0 1) (par (def 1 (bng 1)) (def 2 emp)))).
   { apply seq_par_comm. }
   assert (H1 : seq_proc
-          (par (par (def 1 (bng 1)) (app 0 1)) 
-               (def 2 (lam (bag 1 2 (par (app 0 0) (def 1 (tup 0 0)))))))
-          (par (def 2 (lam (bag 1 2 (par (app 0 0) (def 1 (tup 0 0))))))
-               (par (def 1 (bng 1)) (app 0 1)))).
+          (par (par (par (def 1 (bng 1)) (def 2 emp)) (app 0 1)) 
+               (def 2 (lam (bag 1 2 (par (app 0 1) (def 1 (tup 0 0)))))))
+          (par (def 2 (lam (bag 1 2 (par (app 0 1) (def 1 (tup 0 0))))))
+               (par (par (def 1 (bng 1)) (def 2 emp)) (app 0 1)))).
   { apply seq_par_comm. }
   assert (H2 : seq_proc
-          (par (def 2 (lam (bag 1 2 (par (app 0 0) (def 1 (tup 0 0)))))) 
-               (par (def 1 (bng 1)) (app 0 1)))
-          (par (def 2 (lam (bag 1 2 (par (app 0 0) (def 1 (tup 0 0)))))) 
-               (par (app 0 1) (def 1 (bng 1)) ))).
+          (par (def 2 (lam (bag 1 2 (par (app 0 1) (def 1 (tup 0 0)))))) 
+               (par (par (def 1 (bng 1)) (def 2 emp)) (app 0 1)))
+          (par (def 2 (lam (bag 1 2 (par (app 0 1) (def 1 (tup 0 0)))))) 
+               (par (app 0 1) (par (def 1 (bng 1)) (def 2 emp))))).
   { apply seq_par_cong.
     - reflexivity.
     - assumption. } 
-  apply seq_proc_trans with (P2 := par (def 2 (lam (bag 1 2 (par (app 0 0) 
+  apply seq_proc_trans with (P2 := par (def 2 (lam (bag 1 2 (par (app 0 1) 
                                                                  (def 1 (tup 0 0)))))) 
-                                       (par (def 1 (bng 1)) (app 0 1))).
+                                       (par (par (def 1 (bng 1)) (def 2 emp)) (app 0 1))).
   - assumption.
   - assumption.
 Qed. 
   
+(* General wf'dness proof sketch:  
+  To show wf_term m n (zero m) (zero n) ws_term_example,
+   forall 0 < m, 3 < n:
+  - eapply wf_bag with G' := (2[0 ↦ 1] ⨥ 2[1 ↦ 1]) and 
+    D' := (2[0 ↦ 0] ⨥ 2[1 ↦ 2] ⨥ 2[2 ↦ 2]) 
+  - Distribute '⊗ zero m' and '⊗ zero' over ⨥ in G'⊗ G 
+    and D'⊗ D (see delta_app_zero).
+  - Reshape results as: 
+    (zero (2 + m)) ⨥ ((2 + m)[0 ↦ 1] ⨥ (2 + m)[1 ↦ 1])) 
+    and 
+    ((3 + n)[0 ↦ 0] ⨥ 3[2 ↦ 1]) ⨥ (3[1 ↦ 1] ⨥ 3[1 ↦ 1] ⨥ 3[2 ↦ 1]).
+      + That is, use sum_assoc, sum_commutativity, delta_sum, etc.
+        to reshape lctxts so that they can be split up in 
+        applications of wf_par, used in wf_def/tup/app, etc. 
+  - Apply wf's. *)
 
 (* Identity Example *)   
 Example id_ex : term := 
@@ -97,6 +118,7 @@ nu {f} {r_a, r_b, r_c}
   f r_b
   r_b <- (r_c, r_c)
 *)
+
 
 (* Proof of well-structuredness *)
 Theorem id_ex_is_ws : forall m n, 
@@ -151,6 +173,7 @@ assert ((zero (m + n)) ⨥ (m + n)[x ↦ y] = (m + n)[x ↦ y]).
 symmetry. assumption.
 Qed.
 
+
 (* Reverse of associativity lemma *)
 Lemma sum_assoc_rev : forall {n} (c : lctxt n) (d : lctxt n) (e : lctxt n),
     (d ⨥ e) ⨥ c = d ⨥ (e ⨥ c).
@@ -186,13 +209,11 @@ reflexivity.
 Qed.
 
 
-(* Work-in-progress...
+(* Thoughts/issues: 
+  ! splitting up unrestricted lctxt context to apply wf_par on (par P1 P2)
+    for function used in both P1 and P2
 
-Current thoughts/issues: 
-! splitting up unrestricted lctxt context to apply wf_par on (par P1 P2)
-  for function used in both P1 and P2
-
-- should work out redunacies in reshaping lctxts
+  - should work out redunacies in reshaping lctxts
 *)
 Theorem id_ex_is_wf : forall m n, 
     0 < m /\ 2 < n -> wf_term m n (zero m) (zero n) id_ex.
@@ -207,7 +228,7 @@ eapply wf_bag with  (G' := 1[0 ↦ 1]) (D' :=  (3[0 ↦ 2] ⨥ 3[1 ↦ 2] ⨥ 3[
   destruct Hx as [Hx | [Hx | Hx]]. 
   all : (subst; unfold sum, delta, zero; simpl; lia).
 
-- (* reshaping G *)
+- (* Reshape G' ⊗ G *)
   assert (H : @ctxt_app _ 1 m (1[0 ↦ 1]) (zero m) = ((1 + m) [0 ↦ 1])). 
   { apply delta_app_zero_r. lia. } 
   assert (H' : ((1 + m) [0 ↦ 1]) = (zero (1 + m)) ⨥ ((1 + m) [0 ↦ 1])). 
@@ -218,7 +239,7 @@ eapply wf_bag with  (G' := 1[0 ↦ 1]) (D' :=  (3[0 ↦ 2] ⨥ 3[1 ↦ 2] ⨥ 3[
   assert ((zero n) = (zero n) ⨥ (zero n)). 
   { unfold zero, sum. simpl. reflexivity. }
 
-  (* reshaping D *)
+  (* Reshape D' ⊗ D *)
   assert (@ctxt_app _ 3 n (3[0 ↦ 2] ⨥ 3[1 ↦ 2] ⨥ 3[2 ↦ 2]) (zero n)
             = ((3 + n)[0 ↦ 2] ⨥ (3 + n)[1 ↦ 2] ⨥ (3 + n)[2 ↦ 2])).
   { replace (zero n) with ((zero n) ⨥ (zero n)).
@@ -249,7 +270,7 @@ eapply wf_bag with  (G' := 1[0 ↦ 1]) (D' :=  (3[0 ↦ 2] ⨥ 3[1 ↦ 2] ⨥ 3[
     { apply sum_zero_r with (c := (((3 + n) [0 ↦ 2] ⨥ (3 + n) [1 ↦ 2]) ⨥ (3 + n) [2 ↦ 2])). }
     symmetry; assumption. }
 
-  (* replace D using reshaping from above and from lemma *)
+  (* Rewrite using reshaping from above and from lemma *)
   replace (((3[0 ↦ 2] ⨥ 3[1 ↦ 2]) ⨥ 3[2 ↦ 2]) ⊗ zero n) with 
           ((((3 + n) [0 ↦ 2] ⨥ (3 + n) [1 ↦ 2]) ⨥ (3 + n) [2 ↦ 2])).
   replace (((3 + n) [0 ↦ 2] ⨥ (3 + n) [1 ↦ 2]) ⨥ (3 + n) [2 ↦ 2]) with 
@@ -297,9 +318,9 @@ eapply wf_bag with  (G' := 1[0 ↦ 1]) (D' :=  (3[0 ↦ 2] ⨥ 3[1 ↦ 2] ⨥ 3[
       How to preserve the usage of unrestricted context across manipulations ?
       ... seems like I need a one ctxt in both P1 and P2, but don't know how to 
       manipulate (1 + m)[0 -> 1] to get that.  *)
-
 Admitted.
   
+
 
 (* Tuples in tuples *)
 
@@ -354,6 +375,7 @@ r_3 <- (r_1, r_2)
 f r_3
 *)
 
+
 (* Proof of well-structuredness *)
 Theorem tup_simple_is_ws : forall m n,
   ws_term m n tup_simple.
@@ -369,11 +391,15 @@ Proof. intros m n. apply ws_bag; apply ws_par.
       + apply ws_app. lia. lia. 
 Qed.
 
+
 (* Thoughts/issues :
 - Can't eapply with lctxts naively; need to consider future rewrites up front.
   (need to rethink original choice of D')    
+- Massaging lctxts into appropriate 'shapes' involves many applications of 
+  sum_assoc, sum_commutativity, delta_sum, sum_zero, and delta_app_zero.
+  The way I have done this is very verbose and heavy-handed -- how can I 
+  make this more concise?
 *)
-
 Lemma refactor_D' : forall n,
 ((((4 + n) [0 ↦ 2] ⨥ (4 + n) [1 ↦ 2]) ⨥ (4 + n) [2 ↦ 2]) ⨥ (4 + n) [3 ↦ 2]) =
 (((4 + n) [0 ↦ 2] ⨥ (4 + n) [1 ↦ 1]) ⨥ 
@@ -429,16 +455,19 @@ Theorem tup_simple_is_wf : forall m n,
   0 < m /\ 0 < n -> wf_term m n (zero m) (zero n) tup_simple.
 Proof. intros m n H. destruct H as [Hm Hn]. 
 eapply wf_bag with (G' := 1[0 ↦ 1]) (D' := 4[0 ↦ 2] ⨥ 4[1 ↦ 2] ⨥ 4[2 ↦ 2] ⨥ 4[3 ↦ 2]).
-- intros x H. destruct x.
+- (* forall x, x < m' -> (G' x) = 1 *)
+  intros x H. destruct x.
   + apply delta_id.
   + inversion H. inversion H1.  
 
-- intros x H. inversion H. 
-  (* Need to think about abbrv. this. *)
-  + assert (((4[0 ↦ 2] ⨥ 4[1 ↦ 2]) ⨥ 4[2 ↦ 2] ⨥ 4[3 ↦ 2]) 3 = 2). 
+- (* forall x, x < n' -> (D' x) = 2 \/ (D' x) = 0 *)
+  intros x H. inversion H. 
+  + (* x = 3*)
+    assert (((4[0 ↦ 2] ⨥ 4[1 ↦ 2]) ⨥ 4[2 ↦ 2] ⨥ 4[3 ↦ 2]) 3 = 2). 
     { unfold sum. simpl. apply delta_id. }
     rewrite H0. lia.
-  + inversion H1. assert (((4[0 ↦ 2] ⨥ 4[1 ↦ 2]) ⨥ 4[2 ↦ 2] ⨥ 4[3 ↦ 2]) 2 = 2).
+  + (* (S x) <= 3; i.e., x < 3 *)
+    inversion H1. assert (((4[0 ↦ 2] ⨥ 4[1 ↦ 2]) ⨥ 4[2 ↦ 2] ⨥ 4[3 ↦ 2]) 2 = 2).
     { unfold sum. simpl. 
       replace (S (S (4[3 ↦ 2] 2))) with ((4[3 ↦ 2] 2) + 2) by lia.  
       assert (4[3 ↦ 2] 2 = 0) by (apply delta_neq; lia). 
@@ -458,13 +487,18 @@ eapply wf_bag with (G' := 1[0 ↦ 1]) (D' := 4[0 ↦ 2] ⨥ 4[1 ↦ 2] ⨥ 4[2 �
     rewrite H6; lia. 
     inversion H7.
 
-- assert ((@ctxt_app _ 1 m (1 [0 ↦ 1]) (zero m)) = (1 + m) [0 ↦ 1]).
+- (* wf_proc (1 + m) (4 + n) (G' ⊗ G) (D' ⊗ D) P) *)
+
+  (* Refactor (G' ⊗ G) as a sum to be 'split up' by applying wf_par *)
+  assert ((@ctxt_app _ 1 m (1 [0 ↦ 1]) (zero m)) = (1 + m) [0 ↦ 1]).
   { apply delta_app_zero_r. lia. }
   rewrite H; clear H.
   assert ((zero (1 + m)) ⨥ (1 + m) [0 ↦ 1] = (1 + m) [0 ↦ 1]).
   { apply sum_zero_l. }
   symmetry in H; rewrite H.
 
+  (* Refactor (D' ⊗ D) as a sum to be 'split up' by applying wf_par;
+     first, distribute ⊗ (zero n) across sum. *)
   assert (@ctxt_app _ 4 n (4[0 ↦ 2] ⨥ 4[1 ↦ 2] ⨥ 4[2 ↦ 2] ⨥ 4[3 ↦ 2]) (zero n)
                = ((4 + n)[0 ↦ 2] ⨥ (4 + n)[1 ↦ 2] ⨥ (4 + n)[2 ↦ 2]⨥ (4 + n)[3 ↦ 2])).
   { assert (zero n = (zero n) ⨥ (zero n)). 
@@ -509,6 +543,7 @@ eapply wf_bag with (G' := 1[0 ↦ 1]) (D' := 4[0 ↦ 2] ⨥ 4[1 ↦ 2] ⨥ 4[2 �
     reflexivity. }
   rewrite H0. clear H0. 
 
+  (* Rewrite using refactor_D' lemma proved above *)
   replace ((((4 + n) [0 ↦ 2] ⨥ (4 + n) [1 ↦ 2]) ⨥ (4 + n) [2 ↦ 2]) ⨥ (4 + n) [3 ↦ 2]) 
   with (((4 + n) [0 ↦ 2] ⨥ (4 + n) [1 ↦ 1]) ⨥ 
         ((4 + n) [2 ↦ 1] ⨥ 
@@ -520,26 +555,31 @@ eapply wf_bag with (G' := 1[0 ↦ 1]) (D' := 4[0 ↦ 2] ⨥ 4[1 ↦ 2] ⨥ 4[2 �
                     (D2 := ((4 + n) [2 ↦ 1] ⨥ 
                             (((4 + n) [2 ↦ 1] ⨥ (4 + n) [1 ↦ 1] ⨥ (4 + n) [3 ↦ 1]) ⨥ 
                              (4 + n) [3 ↦ 1]))).
-    + assert ((4 + n) [0 ↦ 2] ⨥ (4 + n) [1 ↦ 1] = (4 + n) [1 ↦ 1] ⨥ (4 + n) [0 ↦ 2]).
+    + (* Reshape to apply wf_def. *)
+      assert ((4 + n) [0 ↦ 2] ⨥ (4 + n) [1 ↦ 1] = (4 + n) [1 ↦ 1] ⨥ (4 + n) [0 ↦ 2]).
       { apply sum_commutative. }
       rewrite H0; clear H0.
       apply wf_def. lia.
+      (* Reshape to apply wf_tup. *)
       assert ((4 + n) [0 ↦ 2] = (4 + n) [0 ↦ 1] ⨥ (4 + n) [0 ↦ 1]).
       { symmetry; apply delta_sum. }
       rewrite H0; clear H0. 
       apply wf_tup. lia. lia.
     + rewrite H. apply wf_par.
-        * assert ((4 + n) [2 ↦ 1] = (4 + n) [2 ↦ 1] ⨥ (zero (4 + n))).
+        * (* Reshape to apply wf_def. *)
+          assert ((4 + n) [2 ↦ 1] = (4 + n) [2 ↦ 1] ⨥ (zero (4 + n))).
           { symmetry; apply sum_zero_r. }
           rewrite H0; clear H0.
           apply wf_def. lia. 
           apply wf_emp.
         * rewrite H. apply wf_par. 
+          (* Reshape to apply wf_def. *)
           assert (((4 + n) [2 ↦ 1] ⨥ (4 + n) [1 ↦ 1]) ⨥ (4 + n) [3 ↦ 1] =
                   (4 + n) [3 ↦ 1] ⨥ ((4 + n) [2 ↦ 1] ⨥ (4 + n) [1 ↦ 1])).
           { apply sum_commutative. }
           rewrite H0; clear H0. 
           apply wf_def. lia. 
+          (* Reshape to apply wf_tup. *)
           assert ((4 + n) [2 ↦ 1] ⨥ (4 + n) [1 ↦ 1] = (4 + n) [1 ↦ 1] ⨥ (4 + n) [2 ↦ 1]).
           { apply sum_commutative. }
           rewrite H0; clear H0.
