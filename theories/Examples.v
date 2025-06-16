@@ -104,6 +104,7 @@ Qed.
         applications of wf_par, used in wf_def/tup/app, etc. 
   - Apply wf's. *)
 
+
 (* Identity Example *)   
 Example id_ex : term := 
   bag 1 3 
@@ -118,7 +119,6 @@ nu {f} {r_a, r_b, r_c}
   f r_b
   r_b <- (r_c, r_c)
 *)
-
 
 (* Proof of well-structuredness *)
 Theorem id_ex_is_ws : forall m n, 
@@ -139,7 +139,6 @@ apply ws_par.
           lia. lia.
 Qed.
 
-
 (* Appending zero 'extends context' / pads with zeros *)
 Lemma delta_app_zero_r : forall m n x y, 
                       x < m -> 
@@ -153,7 +152,6 @@ intros x0. destruct (lt_dec x0 m).
     contradiction.
     reflexivity.
 Qed.
-
 
 (* Summing with zero context yields original context *)
 Lemma delta_add_zero_r : forall m n x y, 
@@ -174,7 +172,6 @@ assert ((zero (m + n)) ⨥ (m + n)[x ↦ y] = (m + n)[x ↦ y]).
 symmetry. assumption.
 Qed.
 
-
 (* Reverse of associativity lemma *)
 Lemma sum_assoc_rev : forall {n} (c : lctxt n) (d : lctxt n) (e : lctxt n),
     (d ⨥ e) ⨥ c = d ⨥ (e ⨥ c).
@@ -183,13 +180,18 @@ Proof.
   intros. unfold sum. lia.
 Qed.
 
+Ltac dsum_tac :=
+  match goal with 
+    |- _ => symmetry; apply delta_sum
+  end.
+
 (* Reshaping lctxt for id_ex_is_wf *)
 Lemma refactor_lctxt : forall n,
   ((3 + n)[0 ↦ 2] ⨥ (3 + n)[1 ↦ 2] ⨥ (3 + n)[2 ↦ 2]) =
   (((3 + n)[0 ↦ 1]) ⨥ ((3 + n)[0 ↦ 1] ⨥ ((3 + n)[1 ↦ 1]  ⨥ (3 + n)[1 ↦ 1] ⨥ (3 + n)[2 ↦ 2]))).
 Proof. intros n.
 assert (H : (3 + n) [0 ↦ 2] = (3 + n) [0 ↦ 1] ⨥ (3 + n) [0 ↦ 1]). 
-{ symmetry; apply delta_sum. } 
+dsum_tac.
 rewrite H; clear H.
 assert (((3 + n) [0 ↦ 1] ⨥ (3 + n) [0 ↦ 1]) ⨥ (3 + n) [1 ↦ 2] =
         (3 + n) [0 ↦ 1] ⨥ ((3 + n) [0 ↦ 1] ⨥ (3 + n) [1 ↦ 2])).
@@ -200,7 +202,7 @@ assert (H : ((3 + n) [0 ↦ 1] ⨥ ((3 + n) [0 ↦ 1] ⨥ (3 + n) [1 ↦ 2])) �
 { apply sum_assoc_rev. }
 rewrite H; clear H.
 assert (H : (3 + n) [1 ↦ 2] = (3 + n) [1 ↦ 1] ⨥ (3 + n) [1 ↦ 1]). 
-{ symmetry; apply delta_sum. } 
+dsum_tac.
 rewrite H; clear H.
 assert (H : (((3 + n) [0 ↦ 1] ⨥ ((3 + n) [1 ↦ 1] ⨥ (3 + n) [1 ↦ 1])) ⨥ (3 + n) [2 ↦ 2]) =
             (3 + n) [0 ↦ 1] ⨥ ((((3 + n) [1 ↦ 1]) ⨥ (3 + n) [1 ↦ 1]) ⨥ (3 + n) [2 ↦ 2])).
@@ -320,7 +322,6 @@ eapply wf_bag with  (G' := 1[0 ↦ 1]) (D' :=  (3[0 ↦ 2] ⨥ 3[1 ↦ 2] ⨥ 3[
     + symmetry; apply refactor_lctxt.   
 Qed.
   
-
 
 (* Tuples in tuples *)
 
@@ -454,32 +455,11 @@ eapply wf_bag with (G' := 1[0 ↦ 1]) (D' := 4[0 ↦ 2] ⨥ 4[1 ↦ 2] ⨥ 4[2 �
   + inversion H. inversion H1.  
 
 - (* forall x, x < n' -> (D' x) = 2 \/ (D' x) = 0 *)
-  intros x H. inversion H. 
-  + (* x = 3*)
-    assert (((4[0 ↦ 2] ⨥ 4[1 ↦ 2]) ⨥ 4[2 ↦ 2] ⨥ 4[3 ↦ 2]) 3 = 2). 
-    { unfold sum. simpl. apply delta_id. }
-    rewrite H0. lia.
-  + (* (S x) <= 3; i.e., x < 3 *)
-    inversion H1. assert (((4[0 ↦ 2] ⨥ 4[1 ↦ 2]) ⨥ 4[2 ↦ 2] ⨥ 4[3 ↦ 2]) 2 = 2).
-    { unfold sum. simpl. 
-      replace (S (S (4[3 ↦ 2] 2))) with ((4[3 ↦ 2] 2) + 2) by lia.  
-      assert (4[3 ↦ 2] 2 = 0) by (apply delta_neq; lia). 
-      rewrite H2; lia. }
-    rewrite H2. lia.
-    inversion H3. assert (((4[0 ↦ 2] ⨥ 4[1 ↦ 2]) ⨥ 4[2 ↦ 2] ⨥ 4[3 ↦ 2]) 1 = 2).
-    { unfold sum. simpl. 
-      replace (S (S (4[3 ↦ 2] 1))) with ((4[3 ↦ 2] 1) + 2) by lia.  
-      assert (4[3 ↦ 2] 1 = 0) by (apply delta_neq; lia). 
-      rewrite H4; lia. }
-    rewrite H4; lia.
-    inversion H5. assert (((4[0 ↦ 2] ⨥ 4[1 ↦ 2]) ⨥ 4[2 ↦ 2] ⨥ 4[3 ↦ 2]) 0 = 2).
-    { unfold sum. simpl. 
-      replace (S (S (4[3 ↦ 2] 0))) with ((4[3 ↦ 2] 0) + 2) by lia.  
-      assert (4[3 ↦ 2] 0 = 0) by (apply delta_neq; lia). 
-      rewrite H6; lia. }
-    rewrite H6; lia. 
-    inversion H7.
-
+  intros x H. simpl. 
+  assert (Hx: x = 0 \/ x = 1 \/ x = 2 \/ x = 3) by lia. 
+  destruct Hx as [Hx | [Hx | [Hx | Hx]]]. 
+  all : (subst; unfold sum, delta, zero; simpl; lia).
+  
 - (* wf_proc (1 + m) (4 + n) (G' ⊗ G) (D' ⊗ D) P) *)
 
   (* Refactor (G' ⊗ G) as a sum to be 'split up' by applying wf_par *)
@@ -577,6 +557,7 @@ eapply wf_bag with (G' := 1[0 ↦ 1]) (D' := 4[0 ↦ 2] ⨥ 4[1 ↦ 2] ⨥ 4[2 �
           { apply sum_commutative. }
           rewrite H0; clear H0.
           apply wf_tup. lia. lia.
+          (* Reshape to apply wf_def *)
           assert ((4 + n) [3 ↦ 1] = (4 + n) [3 ↦ 1] ⨥ (zero (4 + n))).
           { symmetry; apply sum_zero_r. }
           rewrite H0; clear H0.
