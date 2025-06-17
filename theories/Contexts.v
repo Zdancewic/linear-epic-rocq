@@ -2146,22 +2146,38 @@ Lemma delta_app_zero_r :
     x < m ->
     (@ctxt_app _ m n (m[x ↦ y]) (zero n)) = (m + n)[x ↦ y].
 Proof.
-  intros.
-  apply functional_extensionality.
-  unfold ctxt_app, delta, zero.
-  intros x0.
-Admitted.
+intros.
+apply functional_extensionality.
+unfold ctxt_app, delta, zero.
+intros x0. 
+destruct (lt_dec x0 m).
+destruct (lt_dec x m); try lia.
+destruct (Nat.eq_dec x x0).
+destruct (lt_dec x (m+n)); try lia.
+destruct (lt_dec x (m+n)); try lia. 
+destruct (lt_dec x (m+n)); try lia. 
+destruct (Nat.eq_dec x x0); try lia.
+Qed.
 
 Lemma delta_app_zero_l :
   forall m n x y,
     x < m ->
     (@ctxt_app _ n m (zero n) (m[x ↦ y]) ) = (n + m)[(n + x) ↦ y].
 Proof.
-  intros.
-  apply functional_extensionality.
-  unfold ctxt_app, delta, zero.
-  intros x0.
-Admitted.
+intros.
+apply functional_extensionality.
+unfold ctxt_app, delta, zero.
+intros x0. 
+destruct (lt_dec x0 n).
+destruct (lt_dec (n+x) (n+m)); try lia.
+destruct (Nat.eq_dec (n+x) x0); try lia.
+destruct (lt_dec x m); try lia.
+destruct (Nat.eq_dec x (x0-n)); try lia.
+destruct (lt_dec (n+x) (n+m)); try lia.
+destruct (Nat.eq_dec (n+x) x0); try lia.
+destruct (lt_dec (n+x) (n+m)); try lia.
+destruct (Nat.eq_dec (n+x) x0); try lia.
+Qed.
 
 
 (* One piece of an Ltac definition that might be useful below *)
@@ -2177,10 +2193,14 @@ Lemma lctxt_sum_3_inv1 : forall n' n r r1 r2 r1' r2' (D : lctxt n'),
     ->
         D ≡[n'] ((n')[r ↦ 2] ⨥ ((n')[r1 ↦ 1] ⨥ ((n') [r1' ↦ 1] ⨥ ((n') [r2 ↦ 1] ⨥ (n') [r2' ↦ 1])))).
 Proof.
-  unfold ctxt_eq.
-  intros.
-  apply fun_apply with (x:=x) in H.
-  unfold ctxt_app, delta, sum in *.
+unfold ctxt_eq.
+intros.
+apply fun_apply with (x:=x) in H.
+unfold ctxt_app, delta, sum in *.
+unfold zero in H.
+destruct (lt_dec x n').
+
+
   (* TODO: Keely -- this proof will definitely benefit from Ltac *)
 Admitted.
 
