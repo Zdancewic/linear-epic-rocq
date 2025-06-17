@@ -505,49 +505,68 @@ with wf_proc : forall (m n:nat), lctxt m -> lctxt n -> proc -> Prop :=
 | wf_def :
   forall m n
     (G : lctxt m)
-    (D : lctxt n)
+    (D : lctxt n) (D' : lctxt n)
     (r : rvar) (HR : r < n)
     (o : oper)
-    (WFO : wf_oper m n G D o),
-    wf_proc m n G ((one n r) ⨥ D) (def r o)
+    (HD : D ≡[n] (one n r) ⨥ D')
+    (WFO : wf_oper m n G D' o),
+    wf_proc m n G D (def r o)
 
 | wf_app :
   forall m n
+    (G : lctxt m) (D : lctxt n)
     (f : fvar) (HF : f < m)
-    (r : rvar) (HR : r < n),
-    wf_proc m n (one m f) (one n r) (app f r)
+    (r : rvar) (HR : r < n)
+    (HG : G ≡[m] (zero m))
+    (HD : D ≡[n] (one n r)),
+    wf_proc m n G D (app f r)
 
 | wf_par :
   forall m n
-    (G1 G2 : lctxt m)
-    (D1 D2 : lctxt n)
+    (G1 G2 G : lctxt m)
+    (D1 D2 D : lctxt n)
     (P1 P2 : proc)
     (WFP1 : wf_proc m n G1 D1 P1)
-    (WFP2 : wf_proc m n G2 D2 P2),
-    wf_proc m n (G1 ⨥ G2) (D1 ⨥ D2) (par P1 P2)
+    (WFP2 : wf_proc m n G2 D2 P2)
+    (HG : G ≡[m] (G1 ⨥ G2))
+    (HD : D ≡[n] (D1 ⨥ D2))
+  ,
+    wf_proc m n G D (par P1 P2)
             
 with wf_oper : forall (m n:nat), lctxt m -> lctxt n -> oper -> Prop :=
 | wf_emp :
-  forall m n,
-    wf_oper m n (zero m) (zero n) emp
+  forall m n
+    (G : lctxt m) (D : lctxt n)
+    (HG : G ≡[m] (zero m))
+    (HD : D ≡[n] (zero n)),
+    wf_oper m n G D emp
 
 | wf_tup :
   forall m n
+    (G : lctxt m) (D : lctxt n)
     (r1 : rvar) (HR1 : r1 < n)
-    (r2 : rvar) (HR2 : r2 < n),
-    wf_oper m n (zero m) (one n r1 ⨥ one n r2) (tup r1 r2)
+    (r2 : rvar) (HR2 : r2 < n)
+    (HG : G ≡[m] (zero m))
+    (HD : D ≡[n] (one n r1 ⨥ one n r2)),
+    wf_oper m n G D (tup r1 r2)
 
 | wf_bng :
   forall m n
+    (G : lctxt m) (D : lctxt n)    
     (f : fvar)
-    (HF : f < m),
-    wf_oper m n (one m f) (zero n) (bng f)
+    (HF : f < m)
+    (HG : G ≡[m] (one m f))
+    (HD : D ≡[n] (zero n)),
+    wf_oper m n G D (bng f)
             
 | wf_lam :
   forall m n
+    (G : lctxt m) (D : lctxt n)
+    (HG : G ≡[m] (zero m))
+    (HD : D ≡[n] (zero n))
     (t : term)
     (WFT : wf_term m 1 (zero m) (1[0 ↦ 1]) t),
-    wf_oper m n (zero m) (zero n) (lam t).
+    wf_oper m n G D (lam t).
 Set Elimination Schemes.
 
 Scheme wf_term_ind := Induction for wf_term Sort Prop
@@ -622,41 +641,55 @@ Proof.
     + inversion H; 
       existT_eq;
       subst.
-      rewrite sum_commutative. rewrite (@sum_commutative _ D1 D2).
-      apply wf_par; assumption.
+      rewrite sum_commutative in HG. rewrite (@sum_commutative _ D1 D2) in HD.
+      eapply wf_par; eauto.
     + inversion H; existT_eq; subst.
-      rewrite sum_commutative. rewrite (@sum_commutative _ D1 D2).
-      apply wf_par; assumption.
+      rewrite sum_commutative in HG. rewrite (@sum_commutative _ D1 D2) in HD.
+      eapply wf_par; eauto.
   - split; intros.
     + inversion H; existT_eq; subst. inversion WFP2; existT_eq; subst.
-      rewrite sum_assoc. rewrite (@sum_assoc _ D1 D0 D3).
-      apply wf_par. apply wf_par; assumption. assumption.
+      eapply wf_par; eauto.
+      eapply wf_par; eauto.
+      reflexivity.
+      reflexivity.
+      rewrite <- sum_assoc. rewrite <- HG0. assumption.
+      rewrite <- sum_assoc. rewrite <- HD0. assumption.
+      
     + inversion H; existT_eq; subst. inversion WFP1; existT_eq; subst.
-      rewrite <- sum_assoc. rewrite <- (@sum_assoc _ D0 D3 D2).
-      apply wf_par. assumption. apply wf_par; assumption.
+      eapply wf_par; eauto.
+      eapply wf_par; eauto.
+      reflexivity.
+      reflexivity.
+      rewrite sum_assoc. rewrite <- HG0. assumption.
+      rewrite sum_assoc. rewrite <- HD0. assumption.
   - split; intros.
     + inversion H; existT_eq; subst. inversion WFP1; existT_eq; subst.
-      rewrite <- sum_assoc. rewrite <- (@sum_assoc _ D0 D3 D2).
-      apply wf_par. assumption. apply wf_par; assumption.
+      eapply wf_par; eauto.
+      eapply wf_par; eauto.
+      reflexivity.
+      reflexivity.
+      rewrite sum_assoc. rewrite <- HG0. assumption.
+      rewrite sum_assoc. rewrite <- HD0. assumption.
     + inversion H; existT_eq; subst. inversion WFP2; existT_eq; subst.
-      rewrite sum_assoc. rewrite (@sum_assoc _ D1 D0 D3).
-      apply wf_par. apply wf_par; assumption. assumption.
+      eapply wf_par; eauto.
+      eapply wf_par; eauto.
+      reflexivity.
+      reflexivity.
+      rewrite <- sum_assoc. rewrite <- HG0. assumption.
+      rewrite <- sum_assoc. rewrite <- HD0. assumption.
   - destruct H as [HL1 HR1].
     destruct H0 as [HL2 HR2].
     split; intros.
     + inversion H; existT_eq; subst.
-      apply wf_par. apply HL1. apply WFP1.
-      apply HL2. apply WFP2.
+      eapply wf_par; eauto.
     + inversion H; existT_eq; subst.
-      apply wf_par.
-      apply HR1. apply WFP1.
-      apply HR2. apply WFP2.
+      eapply wf_par; eauto.
   - destruct H as [HL HR].
     split; intros.
     + inversion H; existT_eq; subst.
-      apply wf_def; auto.
+      eapply wf_def; eauto.
     + inversion H; existT_eq; subst.
-      apply wf_def; auto.
+      eapply wf_def; eauto.
   - split; intros; auto.
   - destruct H as [HL HR].
     split; intros.
@@ -665,29 +698,125 @@ Proof.
     + inversion H; existT_eq; subst.
       apply wf_lam; auto.
 Qed.
-    
-Instance wf_term_seq : Proper (eq ==> eq ==> eq ==> eq ==> seq_term ==> iff) (wf_term).
+
+Lemma wf_seq_term : 
+  (forall t1 t2,
+      t1 ≈t t2 ->
+     (forall m n G D,
+      wf_term m n G D t1 ->
+      wf_term m n G D t2)).
 Proof.
-  repeat red; intros; subst.
-  split.
-  apply tpo_wf_seq. symmetry. assumption.
-  apply tpo_wf_seq. assumption.
+  apply tpo_wf_seq.
 Qed.
 
-Instance wf_proc_seq : Proper (eq ==> eq ==> eq ==> eq ==> seq_proc ==> iff) (wf_proc).
+Lemma wf_seq_proc :
+   (forall P1 P2,
+        P1 ≈p P2 ->
+        (forall m n G D,
+            wf_proc m n G D P1 ->
+            wf_proc m n G D P2)).
+Proof.
+  apply tpo_wf_seq.
+Qed.  
+
+Lemma wf_seq_oper :
+    (forall o1 o2,
+        o1 ≈o o2 ->
+        (forall m n G D,
+            wf_oper m n G D o1 ->
+            wf_oper m n G D o2)).
+Proof.
+  apply tpo_wf_seq.
+Qed.  
+ 
+Lemma tpo_equiv_wf :
+  (forall m n G1 D1 t,
+      wf_term m n G1 D1 t ->
+      forall G2 D2,
+      G1 ≡[m] G2 ->
+      D1 ≡[n] D2 ->
+      wf_term m n G2 D2 t)
+  /\
+    (forall m n G1 D1 P,
+        wf_proc m n G1 D1 P ->
+        forall G2 D2,
+      G1 ≡[m] G2 ->
+      D1 ≡[n] D2 ->
+        wf_proc m n G2 D2 P)
+  /\
+    (forall m n G1 D1 o,
+        wf_oper m n G1 D1 o ->
+        forall G2 D2,
+      G1 ≡[m] G2 ->
+      D1 ≡[n] D2 ->
+        wf_oper m n G2 D2 o).
+Proof.
+  apply wf_tpo_ind; intros; eauto.
+  - apply wf_bag with (G' := G')(D' := D'); auto.
+    apply H.
+    rewrite H0. reflexivity.
+    rewrite H1. reflexivity.
+  - eapply wf_def; eauto.
+    eapply transitivity. symmetry. apply H1. apply HD.
+    apply H; auto. reflexivity.
+  - eapply wf_app; eauto.
+    eapply transitivity. symmetry.  eauto. eauto.
+    eapply transitivity. symmetry.  eauto. eauto.
+  - eapply wf_par; eauto.
+    eapply transitivity. symmetry.  eauto. eauto.
+    eapply transitivity. symmetry.  eauto. eauto.
+  - eapply wf_emp; eauto.
+    eapply transitivity. symmetry.  eauto. eauto.
+    eapply transitivity. symmetry.  eauto. eauto.
+  - eapply wf_tup; eauto.
+    eapply transitivity. symmetry.  eauto. eauto.
+    eapply transitivity. symmetry.  eauto. eauto.
+  - eapply wf_bng; eauto.
+    eapply transitivity. symmetry.  eauto. eauto.
+    eapply transitivity. symmetry.  eauto. eauto.
+  - eapply wf_lam; eauto.
+    eapply transitivity. symmetry.  eauto. eauto.
+    eapply transitivity. symmetry.  eauto. eauto.
+Qed.  
+
+#[global] Instance Proper_wf_term {m n:nat}: Proper ((@ctxt_eq nat m) ==> (@ctxt_eq nat n) ==> seq_term ==> iff) (wf_term m n).
 Proof.
   repeat red; intros; subst.
-  split.
-  apply tpo_wf_seq. symmetry. assumption.
-  apply tpo_wf_seq. assumption.
+  split; intros.
+  - eapply tpo_equiv_wf; eauto.
+    eapply wf_seq_term; eauto.
+  - symmetry in H.
+    symmetry in H0.
+    symmetry in H1.
+    eapply tpo_equiv_wf; eauto.
+    eapply wf_seq_term; eauto.
+Qed.  
+  
+
+#[global] Instance Proper_wf_term_proc {m n : nat} : Proper ((@ctxt_eq nat m) ==> (@ctxt_eq nat n) ==> seq_proc ==> iff) (wf_proc m n).
+Proof.
+  repeat red; intros; subst.
+  split; intros.
+  - eapply tpo_equiv_wf; eauto.
+    eapply wf_seq_proc; eauto.
+  - symmetry in H.
+    symmetry in H0.
+    symmetry in H1.
+    eapply tpo_equiv_wf; eauto.
+    eapply wf_seq_proc; eauto.
 Qed.
 
-Instance wf_oper_seq : Proper (eq ==> eq ==> eq ==> eq ==> seq_oper ==> iff) (wf_oper).
+#[global] Instance Proper_wf_term_oper {m n : nat} : Proper ((@ctxt_eq nat m) ==> (@ctxt_eq nat n) ==> seq_oper ==> iff) (wf_oper m n).
 Proof.
   repeat red; intros; subst.
-  split.
-  apply tpo_wf_seq. symmetry. assumption.
-  apply tpo_wf_seq. assumption.
+  split; intros.
+  - eapply tpo_equiv_wf; eauto.
+    eapply wf_seq_oper; eauto.
+  - symmetry in H.
+    symmetry in H0.
+    symmetry in H1.
+    eapply tpo_equiv_wf; eauto.
+    eapply wf_seq_oper; eauto.
 Qed.
 
 (* Every well formed piece of syntax is also well scoped *)
@@ -1522,55 +1651,110 @@ Proof.
       apply wf_bij_app; auto.
       apply wf_bij_app; auto.
   - inversion H0; existT_eq; subst.
-    rewrite ren_sum_compose.
     assert (wf_ren (bij_inv br HBR)) by (apply wf_bij_ren_inv; auto).
     assert (bij_ren (bij_inv br HBR)) by (apply bij_inv_bij; auto).
-    rewrite ren_one_compose with (H:=X); auto.
-    rewrite (bij_inv_bij_inv_eq _ br HWR HBR X).
-    constructor.
+    eapply wf_def; eauto.
     + apply HWR; auto.
-    + apply H; auto.
+    + specialize (@Proper_ren_compose _ n nat (bij_inv br HBR) H1). intros HP.
+      rewrite HD.
+      rewrite ren_sum_compose.
+      rewrite ren_one_compose with (H:=X); auto.
+      rewrite (bij_inv_bij_inv_eq _ br HWR HBR X).
+      reflexivity.
   - inversion H; existT_eq; subst.
     assert (wf_ren (bij_inv br HBR)) by (apply wf_bij_ren_inv; auto).
     assert (bij_ren (bij_inv br HBR)) by (apply bij_inv_bij; auto).
     assert (wf_ren (bij_inv bf HBF)) by (apply wf_bij_ren_inv; auto).
     assert (bij_ren (bij_inv bf HBF)) by (apply bij_inv_bij; auto).
+    specialize (@Proper_ren_compose _ n nat (bij_inv br HBR) H0). intros HP.
+    rewrite HD.
+    specialize (@Proper_ren_compose _ m nat (bij_inv bf HBF) H1). intros HPF.
+    rewrite HG.
     rewrite ren_one_compose with (H:=X); auto.
-    rewrite ren_one_compose with (H:=X0); auto.
     rewrite (bij_inv_bij_inv_eq _ br HWR HBR X).
-    rewrite (bij_inv_bij_inv_eq _ bf HWF HBF X0).
-    constructor.
+    rewrite ren_compose_zero.
+    constructor; auto.
     apply HWF; auto.
     apply HWR; auto.
+    reflexivity.
+    reflexivity.
   - inversion H1; existT_eq; subst.
+    assert (wf_ren (bij_inv br HBR)) by (apply wf_bij_ren_inv; auto).
+    assert (bij_ren (bij_inv br HBR)) by (apply bij_inv_bij; auto).
+    assert (wf_ren (bij_inv bf HBF)) by (apply wf_bij_ren_inv; auto).
+    assert (bij_ren (bij_inv bf HBF)) by (apply bij_inv_bij; auto).
+    specialize (@Proper_ren_compose _ n nat (bij_inv br HBR) H2). intros HP.
+    rewrite HD.
+    specialize (@Proper_ren_compose _ m nat (bij_inv bf HBF) H3). intros HPF.
+    rewrite HG.
     rewrite ren_sum_compose.
     rewrite ren_sum_compose.
-    constructor; auto.
+    econstructor; eauto.
+    reflexivity.
+    reflexivity.
   - inversion H; existT_eq; subst.
+    assert (wf_ren (bij_inv br HBR)) by (apply wf_bij_ren_inv; auto).
+    assert (bij_ren (bij_inv br HBR)) by (apply bij_inv_bij; auto).
+    assert (wf_ren (bij_inv bf HBF)) by (apply wf_bij_ren_inv; auto).
+    assert (bij_ren (bij_inv bf HBF)) by (apply bij_inv_bij; auto).
+    specialize (@Proper_ren_compose _ n nat (bij_inv br HBR) H0). intros HP.
+    rewrite HD.
+    specialize (@Proper_ren_compose _ m nat (bij_inv bf HBF) H1). intros HPF.
+    rewrite HG.
     rewrite ren_compose_zero.
     rewrite ren_compose_zero.
     constructor.
+    reflexivity.
+    reflexivity.
   - inversion H; existT_eq; subst.
-    rewrite ren_sum_compose.
-    rewrite ren_compose_zero.
     assert (wf_ren (bij_inv br HBR)) by (apply wf_bij_ren_inv; auto).
     assert (bij_ren (bij_inv br HBR)) by (apply bij_inv_bij; auto).
+    assert (wf_ren (bij_inv bf HBF)) by (apply wf_bij_ren_inv; auto).
+    assert (bij_ren (bij_inv bf HBF)) by (apply bij_inv_bij; auto).
+    specialize (@Proper_ren_compose _ n nat (bij_inv br HBR) H0). intros HP.
+    rewrite HD.
+    specialize (@Proper_ren_compose _ m nat (bij_inv bf HBF) H1). intros HPF.
+    rewrite HG.
+    rewrite ren_sum_compose.
+    rewrite ren_compose_zero.
     rewrite ren_one_compose with (H := X); auto.
     rewrite ren_one_compose with (H := X); auto.
     rewrite (bij_inv_bij_inv_eq _ br HWR HBR X).
-    constructor; apply HWR; auto.
+    eapply wf_tup.
+    apply HWR; auto.
+    apply HWR; auto.
+    reflexivity.
+    reflexivity.
   - inversion H; existT_eq; subst.
+    assert (wf_ren (bij_inv br HBR)) by (apply wf_bij_ren_inv; auto).
+    assert (bij_ren (bij_inv br HBR)) by (apply bij_inv_bij; auto).
     assert (wf_ren (bij_inv bf HBF)) by (apply wf_bij_ren_inv; auto).
     assert (bij_ren (bij_inv bf HBF)) by (apply bij_inv_bij; auto).
-    rewrite ren_one_compose with (H := X); auto.
-    rewrite (bij_inv_bij_inv_eq _ bf HWF HBF X).
+    specialize (@Proper_ren_compose _ n nat (bij_inv br HBR) H0). intros HP.
+    rewrite HD.
+    specialize (@Proper_ren_compose _ m nat (bij_inv bf HBF) H1). intros HPF.
+    rewrite HG.
+    rewrite ren_one_compose with (H := X0); auto.
+    rewrite (bij_inv_bij_inv_eq _ bf HWF HBF X0).
     rewrite ren_compose_zero.
     constructor.
     apply HWF; auto.
+    reflexivity.
+    reflexivity.
   - inversion H0; existT_eq; subst.
+    assert (wf_ren (bij_inv br HBR)) by (apply wf_bij_ren_inv; auto).
+    assert (bij_ren (bij_inv br HBR)) by (apply bij_inv_bij; auto).
+    assert (wf_ren (bij_inv bf HBF)) by (apply wf_bij_ren_inv; auto).
+    assert (bij_ren (bij_inv bf HBF)) by (apply bij_inv_bij; auto).
+    specialize (@Proper_ren_compose _ n nat (bij_inv br HBR) H1). intros HP.
+    rewrite HD.
+    specialize (@Proper_ren_compose _ m nat (bij_inv bf HBF) H2). intros HPF.
+    rewrite HG.    
     rewrite ren_compose_zero.
     rewrite ren_compose_zero.
     constructor; auto.
+    reflexivity.
+    reflexivity.
     specialize (H t' bf _ H6 HWF HBF (wf_ren_id 1) (bij_ren_id 1)).
     rewrite ren_compose_zero in H.
     simpl in H.
@@ -1718,35 +1902,49 @@ Proof.
   inversion WFP3; existT_eq; subst; clear WFP3.
   inversion WFO; existT_eq; subst; clear WFO.
   inversion WFO0; existT_eq; subst; clear WFO0.
-  rewrite sum_zero_r in H1.
-  rewrite sum_zero_r in H2.
-  unfold one in H2.
-  rewrite delta_sum in H2.
-  simpl in H2.
-  apply sum_app_inv in H2.
-  destruct H2 as (DA1 & DA2 & DB1 & DB2 & EQ1 & EQ2 & EQ3 & EQ4).
-  subst.
-  assert (DB1 = zero n). { apply sum_zero_inv_l in EQ4. assumption. }
-  assert (DB2 = zero n). { apply sum_zero_inv_r in EQ4. assumption. }
+  
+  rewrite HG1 in HG0; clear HG1.
+  rewrite HG2 in HG0; clear HG2.
+  rewrite sum_zero_r in HG0.
+  rewrite HG0 in HG; clear HG0.
+  rewrite sum_zero_r in HG.
+  rewrite <- HG in WFP1; clear HG.
+  rewrite HD4 in HD2; clear HD4.
+  rewrite sum_zero_r in HD2.
+  rewrite HD2 in HD0; clear HD2.
+  rewrite HD3 in HD1; clear HD3.
+  rewrite sum_zero_r in HD1.
+  rewrite HD1 in HD0; clear HD1.
+  unfold one in HD0.
+  rewrite delta_sum in HD0. simpl in HD0.
+  rewrite HD0 in HD; clear HD0.
+  apply sum_app_inv_ctxt in HD.
+  destruct HD as (DA1 & DA2 & DB1 & DB2 & EQ1 & EQ2 & EQ3 & EQ4).
+  assert (DB1 ≡[n] zero n). { apply sum_zero_inv_l_eq in EQ4. assumption. } 
+  assert (DB2 ≡[n] zero n). { apply sum_zero_inv_r_eq in EQ4. assumption. }
   clear EQ4.
-  subst.
-  apply wf_bag with (G' := G')(D' := DA1); auto.
-  assert (r < n'). { apply app_delta_zero_inv_lt in EQ2; auto. }
-  assert (n'[r ↦ 2] ≡[n'] DA2).
-  { intros. apply app_delta_zero_inv_ctxt in EQ2; auto. }
+  rewrite H in EQ1; clear H.
+  rewrite H0 in EQ2; clear H0.
+  rewrite EQ1 in WFP1.
+  eapply wf_bag.
+  3 : { apply WFP1.  }
+  auto.
+  apply app_delta_zero_inv_ctxt in EQ2; auto.
+  rewrite <- EQ2 in EQ3; clear EQ2.
   intros x HX.
+  specialize (UD' x HX).
   destruct (Nat.eq_dec x r).
-  - subst. assert (DA2 r = 2). { rewrite <- H0; auto. apply delta_id. }
-    apply UD' in HX.
-    destruct HX.
-    + right. rewrite lctxt_sum in H2. lia.
-    + rewrite lctxt_sum in H2. lia.
-  - assert (DA2 x = 0). { rewrite <- H0; auto. apply delta_neq; auto. }
-    apply UD' in HX.
-    destruct HX.
-    + rewrite lctxt_sum in H2. lia.
-    + rewrite lctxt_sum in H2. lia.
-Qed.      
+  - subst.
+    specialize (EQ3 _ HX).
+    unfold sum in EQ3.
+    rewrite delta_id in EQ3; auto.
+    lia.
+  - specialize (EQ3 _ HX).
+    unfold sum in EQ3.
+    rewrite delta_neq in EQ3; auto.
+    lia.
+Qed.    
+                     
 
 
 Lemma wf_prim_step_tup :
@@ -1762,6 +1960,7 @@ Proof.
   inversion WFP3; existT_eq; subst; clear WFP3.
   inversion WFO; existT_eq; subst; clear WFO.
   inversion WFO0; existT_eq; subst; clear WFO0.
+(*  
   rewrite sum_zero_r in H1.
   unfold one in H2.
   eapply sum_app_inv in H2.
@@ -1770,9 +1969,7 @@ Proof.
   assert (DB2 = zero n). { apply sum_zero_inv_r in EQ4. assumption. }
   clear EQ4.
   subst.
-  assert (forall x,
-        x < n' ->
-        DA2 x = ((n')[r ↦ 2] ⨥ ((n')[r1 ↦ 1] ⨥ ((n') [r1' ↦ 1] ⨥ ((n') [r2 ↦ 1] ⨥ (n') [r2' ↦ 1])))) x).
+  assert (DA2 ≡[n'] ((n')[r ↦ 2] ⨥ ((n')[r1 ↦ 1] ⨥ ((n') [r1' ↦ 1] ⨥ ((n') [r2 ↦ 1] ⨥ (n') [r2' ↦ 1]))))).
   { eapply lctxt_sum_3_inv1. apply EQ2. } 
   clear EQ2.
   unfold cut_renaming.
@@ -1789,8 +1986,12 @@ Proof.
                | H : context [Nat.eq_dec ?R1 ?R2] |- _ => destruct (Nat.eq_dec R1 R2)
                end; try lia.
       * eapply tpo_wf_ws; eauto.
-    +
-(*      
+    + rewrite (@sum_assoc _ (n' [r1' ↦ 1]) (n' [r1' ↦ 1]) _) in H.
+      rewrite delta_sum in H.
+      simpl in H.
+      rewrite sum_assoc in H.
+      
+
       r1 <> r2 ->
       forall x, x < n' ->
            (x = r1 /\ D x = 1) \/
