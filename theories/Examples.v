@@ -143,14 +143,18 @@ Qed.
 Lemma delta_app_zero_r : forall m n x y, 
                       x < m -> 
                       (@ctxt_app _ m n (m[x ↦ y]) (zero n)) = (m + n)[x ↦ y].
-Proof. intros. apply functional_extensionality. 
-unfold ctxt_app, delta, zero. 
-intros x0. destruct (lt_dec x0 m).
-  - reflexivity.
-  - destruct (Nat.eq_dec x x0).
-    subst.
-    contradiction.
-    reflexivity.
+Proof.
+intros.
+apply functional_extensionality.
+unfold ctxt_app, delta, zero.
+intros x0. 
+destruct (lt_dec x0 m).
+destruct (lt_dec x m); try lia.
+destruct (Nat.eq_dec x x0).
+destruct (lt_dec x (m+n)); try lia.
+destruct (lt_dec x (m+n)); try lia. 
+destruct (lt_dec x (m+n)); try lia. 
+destruct (Nat.eq_dec x x0); try lia.
 Qed.
 
 (* Summing with zero context yields original context *)
@@ -218,28 +222,78 @@ Proof. intros m n H. destruct H as [Hm Hn].
 eapply wf_bag with  (G' := 1[0 ↦ 1]) (D' :=  (3[0 ↦ 2] ⨥ 3[1 ↦ 2] ⨥ 3[2 ↦ 2])). 
 - intros x H. 
   assert (Hx: x = 0) by lia; subst. 
-  apply delta_id. 
+  apply delta_id; lia.
 
 - intros x H. simpl. 
   assert (Hx: x = 0 \/ x = 1 \/ x = 2) by lia. 
   destruct Hx as [Hx | [Hx | Hx]]. 
   all : (subst; unfold sum, delta, zero; simpl; lia).
 
-- (* Reshape G' ⊗ G *)
-  assert (H : @ctxt_app _ 1 m (1[0 ↦ 1]) (zero m) = ((1 + m) [0 ↦ 1])). 
-  { apply delta_app_zero_r. lia. } 
-  assert (H' : ((1 + m) [0 ↦ 1]) = (zero (1 + m)) ⨥ ((1 + m) [0 ↦ 1])). 
-  { apply delta_add_zero_l. lia. }
-  replace ((1 + m) [0 ↦ 1]) with ((zero (1 + m)) ⨥ (1 + m) [0 ↦ 1]) in H. clear H'. 
-  replace (1[0 ↦ 1] ⊗ zero m) with ((zero (1 + m)) ⨥ (1 + m) [0 ↦ 1]). 
-
-  assert ((zero n) = (zero n) ⨥ (zero n)). 
-  { unfold zero, sum. simpl. reflexivity. }
-
-  (* Reshape D' ⊗ D *)
-  assert (@ctxt_app _ 3 n (3[0 ↦ 2] ⨥ 3[1 ↦ 2] ⨥ 3[2 ↦ 2]) (zero n)
+- apply wf_par with (G1:=(zero(1+m))) (G2:=(1+m)[0↦1]) (D1:=(3+n)[0↦1])
+                    (D2:=((3 + n) [0 ↦ 1] ⨥ (((3 + n) [1 ↦ 1] ⨥ (3 + n) [1 ↦ 1]) ⨥ (3 + n) [2↦2]))).
+  + apply wf_def with (D':=zero(3+n)); try lia.
+    assert ((3 + n) [0 ↦ 1] = one (3 + n) 0 ⨥ zero (3 + n)).
+    { symmetry; apply sum_zero_r. }
+    rewrite H; clear H. reflexivity.
+    apply wf_lam; try reflexivity.
+    eapply wf_bag with (G' := (zero (1 + m))) (D' := 1[0 ↦ 2]). 
+      * intros x H'. inversion H'.
+      * intros x H'. inversion H'. 
+        subst. assert (1[0 ↦ 2]0 = 2). unfold zero. reflexivity.
+        rewrite H. lia. 
+        inversion H0.
+      * apply wf_def with (D':=(1+1)[0↦2]); try lia.
+        assert ((@ctxt_app _ 1 1 (1 [0 ↦ 2]) (1 [0 ↦ 1])) = (1 + 1)[1 ↦ 1] ⨥ (1 + 1)[0 ↦ 2]).
+        { unfold ctxt_app, sum. apply functional_extensionality. 
+          intros x. destruct x. simpl. 
+          apply delta_id. lia.
+          simpl. destruct x. simpl.
+          replace (S (2 [0 ↦ 2] 1)) with (2 [0 ↦ 2] 1 + 1) by lia. 
+          simpl. apply delta_id. lia.
+          apply delta_neq. lia. }
+        rewrite H. reflexivity.
+        apply wf_tup; try lia. 
+        simpl. unfold ctxt_app. intros x H. simpl. reflexivity.
+        simpl. unfold sum, one. intros x H. 
+        destruct x. simpl. apply delta_id. lia.
+        apply delta_neq. lia.
+  + apply wf_par with (G1:=(1+m)[0↦1]) (G2:=(zero(1+m))) (D1:=(3 + n) [0 ↦ 1])
+                      (D2:=(3 + n) [1 ↦ 1] ⨥ ((3 + n) [1 ↦ 1] ⨥ (3 + n) [2 ↦ 2])).
+      * apply wf_def with (D':=(zero(3+n))); try lia.
+        assert ((3 + n) [0 ↦ 1] = (3 + n) [0 ↦ 1] ⨥ (zero (3 + n))). 
+        { symmetry; apply sum_zero_r. }
+        rewrite H; clear H. reflexivity.
+        apply wf_bng; try lia; try reflexivity.
+      * apply wf_par with (G1:=(zero(1+m))) (G2:=(zero(1+m))) (D1:=(3 + n) [1 ↦ 1])
+                        (D2:=(3 + n) [1 ↦ 1] ⨥ (3 + n) [2 ↦ 2]).
+        apply wf_app; try lia; try reflexivity. 
+        apply wf_def with (D':=(3 + n) [2 ↦ 2]); try lia; try reflexivity.
+        apply wf_tup; try lia; try reflexivity.
+        unfold one. symmetry. 
+        assert ((3 + n) [2 ↦ 1] ⨥ (3 + n) [2 ↦ 1] = (3+n) [2 ↦ 2]).
+        { apply delta_sum. } 
+        rewrite H; clear H. reflexivity.
+        assert (zero (1 + m) ⨥ zero (1 + m) = zero(1 + m)).
+        { apply sum_zero_r. }
+        rewrite H; clear H; try reflexivity.
+        reflexivity.
+      * assert ((S m) [0 ↦ 1] ⨥ (zero (S m)) = (S m) [0 ↦ 1]).
+        { apply sum_zero_r. }
+        simpl. rewrite H; clear H. reflexivity.
+      * assert ((((3 + n) [1 ↦ 1] ⨥ (3 + n) [1 ↦ 1]) ⨥ (3 + n) [2 ↦ 2]) = 
+                ((3 + n) [1 ↦ 1] ⨥ ((3 + n) [1 ↦ 1] ⨥ (3 + n) [2 ↦ 2]))).
+        { apply sum_assoc_rev. }
+        rewrite H; reflexivity.
+  + simpl. assert ((@ctxt_app _ 1 m (1[0 ↦ 1])(zero m)) = (S m)[0 ↦ 1]). 
+    { apply delta_app_zero_r; try lia. }
+    rewrite H; clear H. 
+    assert (zero (S m) ⨥ (S m) [0 ↦ 1] = (S m) [0 ↦ 1]) by (apply sum_zero_l).
+    rewrite H; clear H. reflexivity.
+  + assert ((zero n) = (zero n) ⨥ (zero n)). 
+    { unfold zero, sum. simpl. reflexivity. }
+    assert (@ctxt_app _ 3 n (3[0 ↦ 2] ⨥ 3[1 ↦ 2] ⨥ 3[2 ↦ 2]) (zero n)
             = ((3 + n)[0 ↦ 2] ⨥ (3 + n)[1 ↦ 2] ⨥ (3 + n)[2 ↦ 2])).
-  { replace (zero n) with ((zero n) ⨥ (zero n)).
+    { replace (zero n) with ((zero n) ⨥ (zero n)).
     assert (((@ctxt_app _ 3 n (3[0 ↦ 2] ⨥ 3[1 ↦ 2]) (zero n)) ⨥ (3[2 ↦ 2] ⊗ zero n))
             = @ctxt_app _ 3 n ((3[0 ↦ 2] ⨥ 3[1 ↦ 2]) ⨥ 3[2 ↦ 2]) (zero n ⨥ zero n)).
     { apply lctxt_sum_app_dist with (D11 := ((3[0 ↦ 2] ⨥ 3[1 ↦ 2]))) (D21 := (3[2 ↦ 2]))
@@ -248,119 +302,32 @@ eapply wf_bag with  (G' := 1[0 ↦ 1]) (D' :=  (3[0 ↦ 2] ⨥ 3[1 ↦ 2] ⨥ 3[
             = (@ctxt_app _ 3 n (3[0 ↦ 2] ⨥ 3[1 ↦ 2]) ((zero n) ⨥ (zero n)))).
     { apply lctxt_sum_app_dist with (D11 := (3[0 ↦ 2])) (D21 := (3[1 ↦ 2]))
                                     (D12 := (zero n)) (D22 := (zero n)). }
-    replace (zero n) with ((zero n) ⨥ (zero n)) in H1. 
+    replace (zero n) with ((zero n) ⨥ (zero n)) in H0. 
     replace (@ctxt_app _ 3 n (3[0 ↦ 2] ⨥ 3[1 ↦ 2]) (zero n ⨥ zero n)) with 
-            ((@ctxt_app _ 3 n (3[0 ↦ 2]) (zero n)) ⨥ (@ctxt_app _ 3 n (3[1 ↦ 2]) (zero n))) in H1.
-    clear H2.
-    replace ((zero n) ⨥ (zero n)) with (zero n) in H1.
+            ((@ctxt_app _ 3 n (3[0 ↦ 2]) (zero n)) ⨥ (@ctxt_app _ 3 n (3[1 ↦ 2]) (zero n))) in H0.
+    clear H1.
+    replace ((zero n) ⨥ (zero n)) with (zero n) in H0.
     assert ((@ctxt_app _ 3 n (3 [0 ↦ 2]) (zero n)) = (3 + n)[0 ↦ 2]). 
     { apply delta_app_zero_r. lia. }
-    replace (@ctxt_app _ 3 n (3[0 ↦ 2]) (zero n)) with ((3 + n) [0 ↦ 2]) in H1. clear H2.
+    replace (@ctxt_app _ 3 n (3[0 ↦ 2]) (zero n)) with ((3 + n) [0 ↦ 2]) in H0. clear H1.
     assert ((@ctxt_app _ 3 n (3[1 ↦ 2]) (zero n)) = (3 + n)[1 ↦ 2]). 
     { apply delta_app_zero_r. lia. }
-    replace (@ctxt_app _ 3 n (3[1 ↦ 2]) (zero n)) with ((3 + n) [1 ↦ 2]) in H1. clear H2.
+    replace (@ctxt_app _ 3 n (3[1 ↦ 2]) (zero n)) with ((3 + n) [1 ↦ 2]) in H0. clear H1.
     assert ((@ctxt_app _ 3 n (3[2 ↦ 2]) (zero n)) = (3 + n)[2 ↦ 2]). 
     { apply delta_app_zero_r. lia. }
-    replace (@ctxt_app _ 3 n (3[2 ↦ 2]) (zero n)) with ((3 + n) [2 ↦ 2]) in H1. clear H2.
+    replace (@ctxt_app _ 3 n (3[2 ↦ 2]) (zero n)) with ((3 + n) [2 ↦ 2]) in H0. clear H1.
     assert (((((3 + n) [0 ↦ 2] ⨥ (3 + n) [1 ↦ 2]) ⨥ (3 + n) [2 ↦ 2]) ⨥ (zero (3 + n)))
             = (((3 + n) [0 ↦ 2] ⨥ (3 + n) [1 ↦ 2]) ⨥ (3 + n) [2 ↦ 2])).
     { apply sum_zero_r with (c := (((3 + n) [0 ↦ 2] ⨥ (3 + n) [1 ↦ 2]) ⨥ (3 + n) [2 ↦ 2])). }
     symmetry; assumption. }
-
-  (* Rewrite using reshaping from above and from lemma *)
-  replace (((3[0 ↦ 2] ⨥ 3[1 ↦ 2]) ⨥ 3[2 ↦ 2]) ⊗ zero n) with 
+    replace (((3[0 ↦ 2] ⨥ 3[1 ↦ 2]) ⨥ 3[2 ↦ 2]) ⊗ zero n) with 
           ((((3 + n) [0 ↦ 2] ⨥ (3 + n) [1 ↦ 2]) ⨥ (3 + n) [2 ↦ 2])).
-  replace (((3 + n) [0 ↦ 2] ⨥ (3 + n) [1 ↦ 2]) ⨥ (3 + n) [2 ↦ 2]) with 
+    replace (((3 + n) [0 ↦ 2] ⨥ (3 + n) [1 ↦ 2]) ⨥ (3 + n) [2 ↦ 2]) with 
            (((3 + n)[0 ↦ 1]) ⨥ ((3 + n)[0 ↦ 1] ⨥ ((3 + n)[1 ↦ 1]  ⨥ (3 + n)[1 ↦ 1] ⨥ (3 + n)[2 ↦ 2]))).
-  
-  apply wf_par.
-    + assert ((3 + n) [0 ↦ 1] = (3 + n) [0 ↦ 1] ⨥ (zero (3 + n))).
-      { symmetry; apply sum_zero_r. }
-      rewrite H2; clear H2.
-      apply wf_def. lia.
-      apply wf_lam. 
-      eapply wf_bag with (G' := (zero (1 + m))) (D' := 1[0 ↦ 2]). 
-        * intros x H'. inversion H'.
-        * intros x H'. inversion H'. 
-          subst. assert (1[0 ↦ 2]0 = 2). unfold zero. reflexivity.
-          rewrite H2. lia. 
-          inversion H3.
-        * assert ((@ctxt_app _ 1 1 (1 [0 ↦ 2]) (1 [0 ↦ 1])) = (1 + 1)[1 ↦ 1] ⨥ (1 + 1)[0 ↦ 2]).
-          { unfold ctxt_app, sum. apply functional_extensionality. 
-            intros x. destruct x. simpl. 
-            apply delta_id.
-            simpl. destruct x. 
-            apply delta_id.
-            apply delta_neq. lia.  }
-          rewrite H2.
-          apply wf_def. lia.
-          assert ((1 + 1) [0 ↦ 2] = (1 + 1)[0 ↦ 1] ⨥ (1 + 1)[0 ↦ 1]).
-          { symmetry; apply delta_sum. }
-          rewrite H3. clear H3.
-          apply wf_tup. lia. lia.
-    + assert ((1 + m) [0 ↦ 1] = (1 + m) [0 ↦ 1] ⨥ (zero (1 + m))).
-      { symmetry; apply sum_zero_r. }
-      rewrite H2; clear H2.
-      assert (((3 + n) [1 ↦ 1] ⨥ (3 + n) [1 ↦ 1]) ⨥ (3 + n) [2 ↦ 2] =
-              (3 + n) [1 ↦ 1] ⨥ ((3 + n) [1 ↦ 1] ⨥ (3 + n) [2 ↦ 2])).
-      { apply sum_assoc_rev. }
-      rewrite H2; clear H2.
-      apply wf_par. 
-      assert ((3 + n) [0 ↦ 1] = (3 + n) [0 ↦ 1] ⨥ (zero (3 + n))). 
-      { symmetry; apply sum_zero_r. }
-      rewrite H2; clear H2.
-      apply wf_def. lia.
-      apply wf_bng. lia.
-      replace (zero (1 + m)) with (zero (1 + m) ⨥ zero (1 + m)).
-      apply wf_par.
-        * apply wf_app. lia. lia.
-        * apply wf_def. lia.
-          assert ((3 + n) [2 ↦ 2] = (3 + n) [2 ↦ 1] ⨥ (3 + n) [2 ↦ 1]).
-          { symmetry; apply delta_sum. }
-          rewrite H2; clear H2.
-          apply wf_tup. lia. lia.
-    + symmetry; apply refactor_lctxt.   
+    reflexivity.
+    symmetry; apply refactor_lctxt.   
 Qed.
   
-
-(* Tuples in tuples *)
-
-Lemma delta_dist : forall {n} x y z w,
-  x < n -> (n[x ↦ y] ⨥ n[x ↦ z])w = n[x ↦ y]w + n[x ↦ z]w.
-Proof. intros. destruct w.
-  - destruct x. 
-    + assert ((n [0 ↦ y] ⨥ n [0 ↦ z]) = n [0 ↦ y + z]). 
-      { apply delta_sum. }
-      rewrite H0; apply delta_id. 
-    + assert ((n [S x ↦ y] ⨥ n [S x ↦ z]) = n [S x ↦ y + z]). 
-      { apply delta_sum. }
-      rewrite H0; apply delta_neq; lia.
-  - destruct x. 
-    + assert ((n [0 ↦ y] ⨥ n [0 ↦ z]) = n [0 ↦ y + z]). 
-      { apply delta_sum. }
-      rewrite H0; apply delta_neq; lia.
-    + assert ((n [S x ↦ y] ⨥ n [S x ↦ z]) = n [S x ↦ y + z]). 
-      { apply delta_sum. }
-      rewrite H0; clear H0. 
-      assert ((S w) = (S x) \/ ~((S w) = (S x))) by lia. 
-      destruct H0. 
-        * rewrite H0. 
-          assert (n [S x ↦ y] (S x) = y). 
-          { apply delta_id. } 
-          rewrite H1; clear H1. 
-          assert (n [S x ↦ z] (S x) = z). 
-          { apply delta_id. } 
-          rewrite H1; clear H1. 
-          apply delta_id.
-        * assert (n [S x ↦ y] (S w) = 0). 
-        { apply delta_neq; lia. } 
-          rewrite H1; clear H1. 
-          assert (n [S x ↦ z] (S w) = 0). 
-          { apply delta_neq; lia. } 
-          rewrite H1; clear H1. 
-          apply delta_neq; lia.
-Qed.
-
 
 (* Nested tuples *)
 Example tup_simple : term :=
@@ -451,7 +418,7 @@ Proof. intros m n H. destruct H as [Hm Hn].
 eapply wf_bag with (G' := 1[0 ↦ 1]) (D' := 4[0 ↦ 2] ⨥ 4[1 ↦ 2] ⨥ 4[2 ↦ 2] ⨥ 4[3 ↦ 2]).
 - (* forall x, x < m' -> (G' x) = 1 *)
   intros x H. destruct x.
-  + apply delta_id.
+  + apply delta_id. lia.
   + inversion H. inversion H1.  
 
 - (* forall x, x < n' -> (D' x) = 2 \/ (D' x) = 0 *)
@@ -532,37 +499,46 @@ eapply wf_bag with (G' := 1[0 ↦ 1]) (D' := 4[0 ↦ 2] ⨥ 4[1 ↦ 2] ⨥ 4[2 �
       assert ((4 + n) [0 ↦ 2] ⨥ (4 + n) [1 ↦ 1] = (4 + n) [1 ↦ 1] ⨥ (4 + n) [0 ↦ 2]).
       { apply sum_commutative. }
       rewrite H0; clear H0.
-      apply wf_def. lia.
-      (* Reshape to apply wf_tup. *)
+      apply wf_def with (D':=(4+n)[0↦2]). lia. 
+      reflexivity.
+      apply wf_tup; try lia. reflexivity.
+       (* Reshape to apply wf_tup. *)
       assert ((4 + n) [0 ↦ 2] = (4 + n) [0 ↦ 1] ⨥ (4 + n) [0 ↦ 1]).
       { symmetry; apply delta_sum. }
       rewrite H0; clear H0. 
-      apply wf_tup. lia. lia.
-    + rewrite H. apply wf_par.
+      reflexivity.
+    + rewrite H. apply wf_par with (G1:=(zero(1+m))) (G2:=(1+m)[0↦1]) (D1:=(4 + n) [2 ↦ 1])
+                                   (D2:=((((4 + n) [2 ↦ 1] ⨥ (4 + n) [1 ↦ 1]) ⨥ (4 + n) [3 ↦ 1]) ⨥ (4 + n) [3↦ 1])).
         * (* Reshape to apply wf_def. *)
           assert ((4 + n) [2 ↦ 1] = (4 + n) [2 ↦ 1] ⨥ (zero (4 + n))).
           { symmetry; apply sum_zero_r. }
           rewrite H0; clear H0.
-          apply wf_def. lia. 
-          apply wf_emp.
-        * rewrite H. apply wf_par. 
+          apply wf_def with (D':=zero(4+n)); try lia; try reflexivity.
+          apply wf_emp; try reflexivity.
+        * rewrite H. apply wf_par with (G1:=(zero(1+m))) (G2:=(1+m)[0↦1]) 
+                                       (D1:=(((4 + n) [2 ↦ 1] ⨥ (4 + n) [1 ↦ 1]) ⨥ (4 + n) [3 ↦ 1]))
+                                       (D2:=(4+n)[3↦ 1]).
           (* Reshape to apply wf_def. *)
           assert (((4 + n) [2 ↦ 1] ⨥ (4 + n) [1 ↦ 1]) ⨥ (4 + n) [3 ↦ 1] =
                   (4 + n) [3 ↦ 1] ⨥ ((4 + n) [2 ↦ 1] ⨥ (4 + n) [1 ↦ 1])).
           { apply sum_commutative. }
           rewrite H0; clear H0. 
-          apply wf_def. lia. 
+          apply wf_def with (D':=((4 + n) [2 ↦ 1] ⨥ (4 + n) [1 ↦ 1])); try lia; try reflexivity.
           (* Reshape to apply wf_tup. *)
           assert ((4 + n) [2 ↦ 1] ⨥ (4 + n) [1 ↦ 1] = (4 + n) [1 ↦ 1] ⨥ (4 + n) [2 ↦ 1]).
           { apply sum_commutative. }
           rewrite H0; clear H0.
-          apply wf_tup. lia. lia.
+          apply wf_tup; try lia; try reflexivity.
           (* Reshape to apply wf_def *)
           assert ((4 + n) [3 ↦ 1] = (4 + n) [3 ↦ 1] ⨥ (zero (4 + n))).
           { symmetry; apply sum_zero_r. }
           rewrite H0; clear H0.
-          apply wf_def. lia.
-          apply wf_bng. lia.
+          apply wf_def with (D':=(zero(4+n))); try lia; try reflexivity.
+          apply wf_bng; try lia; try reflexivity. reflexivity. reflexivity.
+        * reflexivity.
+        * reflexivity. 
+    + reflexivity.
+    + reflexivity.
     + symmetry; apply refactor_D'.
-Qed.  
+Qed. 
 
