@@ -2358,46 +2358,6 @@ Proof.
 Qed.
                  
     
-      
-                                                               
-    
-    
-        
-        
-        
-        
-
-
-
-
-
-        assert (D1 r > 0). {
-        pose proof (HD1 _ HR0).
-        pose proof (HD1 _ HR).
-        pose proof (HD1 _ HR').
-        unfold one, delta, sum in H0, H1, H2.
-        repeat match goal with
-               | [ H: context[lt_dec ?R1 ?R2] |- _ ] => destruct (lt_dec R1 R2); try lia
-               end.
-        repeat match goal with
-               | [ H: context[Nat.eq_dec ?R1 ?R2] |- _ ] => destruct (Nat.eq_dec R1 R2); subst; try lia
-               end.
-        rewrite HDR' in H0.
-        simpl in *.
-        
-        
-        
-
-                          
-               
-      eapply wf_def; eauto.
-
-      
-Admitted.
-
-
-
-
 Lemma wf_prim_step_tup :
   forall m m' n n' r r1 r2 r1' r2' P (G : lctxt m),
     wf_term m n G (zero n) (bag m' n' (par P (par (def r (tup r1 r2)) (def r (tup r1' r2'))))) ->
