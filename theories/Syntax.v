@@ -1997,6 +1997,15 @@ Lemma zero_delta_0 :
   destruct (Nat.eq_dec x x0); try lia.
 Qed.  
 
+Ltac lia_destruct :=
+  repeat match goal with
+    | [ H: context[lt_dec ?R1 ?R2] |- _ ] => destruct (lt_dec R1 R2); try lia
+    end;
+  repeat match goal with
+    | [ H: context[Nat.eq_dec ?R1 ?R2] |- _ ] => destruct (Nat.eq_dec R1 R2); subst; try lia
+    end.
+
+
 Lemma wf_oper_rename_rvar :
   forall m n G D o,
     wf_oper m n G D o ->
@@ -2023,12 +2032,7 @@ Proof.
       pose proof (H1 _ HR) as HA.
       pose proof (H1 _ HR') as HB.
       unfold sum, delta, zero in HA, HB.
-        repeat match goal with
-         | [ H: context[lt_dec ?R1 ?R2] |- _ ] => destruct (lt_dec R1 R2); try lia
-               end.
-        repeat match goal with
-               | [ H: context[Nat.eq_dec ?R1 ?R2] |- _ ] => destruct (Nat.eq_dec R1 R2); subst; try lia
-               end.
+      lia_destruct.
     }
     destruct H2; subst.
     rewrite H0 in HD2.
@@ -2046,12 +2050,7 @@ Proof.
         specialize (HD2 _ HX).
         rewrite HD2. clear HD2.
         unfold ctxt_eq, one, delta, sum in *.
-        repeat match goal with
-               | [ H: context[lt_dec ?R1 ?R2] |- _ ] => destruct (lt_dec R1 R2); try lia
-               end.
-        repeat match goal with
-               | [ H: context[Nat.eq_dec ?R1 ?R2] |- _ ] => destruct (Nat.eq_dec R1 R2); subst; try lia
-               end.
+        lia_destruct.
       }
       apply wf_tup; auto.
     + assert (D2 ≡[n] (one n r') ⨥ (one n r2)). {
@@ -2061,12 +2060,7 @@ Proof.
         specialize (HD2 _ HX).
         rewrite HD2.
         unfold ctxt_eq, one, delta, sum in *.
-        repeat match goal with
-               | [ H: context[lt_dec ?R1 ?R2] |- _ ] => destruct (lt_dec R1 R2); try lia
-               end.
-        repeat match goal with
-               | [ H: context[Nat.eq_dec ?R1 ?R2] |- _ ] => destruct (Nat.eq_dec R1 R2); subst; try lia
-               end.
+        lia_destruct.
       }
       apply wf_tup; auto.
     + assert (D2 ≡[n] (one n r1) ⨥ (one n r')). {
@@ -2076,12 +2070,7 @@ Proof.
         specialize (HD2 _ HX).
         rewrite HD2.
         unfold ctxt_eq, one, delta, sum in *.
-        repeat match goal with
-               | [ H: context[lt_dec ?R1 ?R2] |- _ ] => destruct (lt_dec R1 R2); try lia
-               end.
-        repeat match goal with
-               | [ H: context[Nat.eq_dec ?R1 ?R2] |- _ ] => destruct (Nat.eq_dec R1 R2); subst; try lia
-               end.
+        lia_destruct.
       }
       apply wf_tup; auto.
     + assert (D2 ≡[n] (one n r1) ⨥ (one n r2)). {
@@ -2091,12 +2080,7 @@ Proof.
         specialize (HD2 _ HX).
         rewrite HD2.
         unfold ctxt_eq, one, delta, sum in *.
-        repeat match goal with
-               | [ H: context[lt_dec ?R1 ?R2] |- _ ] => destruct (lt_dec R1 R2); try lia
-               end.
-        repeat match goal with
-               | [ H: context[Nat.eq_dec ?R1 ?R2] |- _ ] => destruct (Nat.eq_dec R1 R2); subst; try lia
-               end.
+        lia_destruct.
       }
       apply wf_tup; auto.
   - rewrite HD in HD1. clear HD.
@@ -2108,12 +2092,7 @@ Proof.
         specialize (HD1 _ HX).
         specialize (HD2 _ HX).
         unfold ctxt_eq, one, delta, sum, zero in *.
-        repeat match goal with
-               | [ H: context[lt_dec ?R1 ?R2] |- _ ] => destruct (lt_dec R1 R2); try lia
-               end.
-        repeat match goal with
-               | [ H: context[Nat.eq_dec ?R1 ?R2] |- _ ] => destruct (Nat.eq_dec R1 R2); subst; try lia
-               end.
+        lia_destruct.
     }
     apply wf_bng; auto.
   - rewrite HD in HD1. clear HD.
@@ -2125,16 +2104,94 @@ Proof.
         specialize (HD1 _ HX).
         specialize (HD2 _ HX).
         unfold ctxt_eq, one, delta, sum, zero in *.
-        repeat match goal with
-               | [ H: context[lt_dec ?R1 ?R2] |- _ ] => destruct (lt_dec R1 R2); try lia
-               end.
-        repeat match goal with
-               | [ H: context[Nat.eq_dec ?R1 ?R2] |- _ ] => destruct (Nat.eq_dec R1 R2); subst; try lia
-               end.
+        lia_destruct.
     }
     apply wf_lam; auto.
 Qed.
-        
+
+
+Lemma lctxt_subtract : forall n c r,
+    r < n ->
+    c r > 0 ->
+    exists d, c ≡[n] (one n r) ⨥ d.
+Proof.
+  intros.
+  exists (fun x => if Nat.eq_dec r x then (c r - 1) else c x).
+  unfold ctxt_eq.
+  intros.
+  unfold one, delta, sum.
+  destruct (lt_dec r n); try lia.
+  destruct (Nat.eq_dec r x); subst; try lia.
+Qed.
+
+Lemma sum_inv_l : forall n (c d1 d2 : lctxt n),
+    c ⨥ d1 ≡[n] c ⨥ d2 ->
+    d1 ≡[n] d2.
+Proof.
+  unfold ctxt_eq, sum.
+  intros.
+  specialize (H _ H0).
+  lia.
+Qed.  
+
+Lemma lctxt_sum_inv_two :
+  forall n
+   (D1 : lctxt n)
+   (r r' cr cr' : nat)
+   (HR : r < n)
+   (HR' : r' < n)
+   (HDR : D1 r = 0)
+   (HDR' : D1 r' = 0)
+   (HNEQ : r <> r')
+   (D0 D3 : lctxt n)
+   (HD1 : D0 ⨥ D3 ≡[ n] (D1 ⨥ n [r ↦ cr]) ⨥ n [r' ↦ cr']),
+    exists D0' D3',
+    D1 ≡[n] D0' ⨥ D3' /\
+      (D0 ≡[n] D0' ⨥ n[r ↦ D0 r] ⨥ n[r' ↦ D0 r']) /\
+      (D3 ≡[n] D3' ⨥ n[r ↦ D3 r] ⨥ n[r' ↦ D3 r']) /\
+      (D0 r + D3 r = cr) /\ (D0 r' + D3 r' = cr') /\
+      (D0' r = 0) /\ (D0' r' = 0) /\ (D3' r = 0) /\ (D3' r' = 0).
+Proof.
+  intros.
+  exists (fun x => if Nat.eq_dec x r then 0 else if Nat.eq_dec x r' then 0 else  D1 x - D3 x).
+  exists (fun x => if Nat.eq_dec x r then 0 else if Nat.eq_dec x r' then 0 else  D1 x - D0 x).
+  split.
+  - unfold ctxt_eq.
+    intros.
+    pose proof (HD1 _ HR).
+    pose proof (HD1 _ HR').
+    pose proof (HD1 _ H).
+    clear HD1.
+    unfold sum, delta in *.
+    destruct (Nat.eq_dec x r); try lia_destruct; try lia.
+    destruct (Nat.eq_dec x r'); lia_destruct; try lia.
+  - split.
+    +  unfold ctxt_eq.
+       intros.
+       pose proof (HD1 _ HR).
+       pose proof (HD1 _ HR').
+       pose proof (HD1 _ H).
+       clear HD1.
+       unfold sum, delta in *.
+       destruct (Nat.eq_dec x r); try lia_destruct; try lia.
+       destruct (Nat.eq_dec x r'); try lia.
+    + split.
+      * unfold ctxt_eq.
+        intros.
+        pose proof (HD1 _ HR).
+        pose proof (HD1 _ HR').
+        pose proof (HD1 _ H).
+        clear HD1.
+        unfold sum, delta in *.
+        destruct (Nat.eq_dec x r); try lia_destruct; try lia.
+        destruct (Nat.eq_dec x r'); try lia.
+      * pose proof (HD1 _ HR).
+        pose proof (HD1 _ HR').
+        clear HD1.
+        unfold sum, delta in *.
+        destruct (Nat.eq_dec r r); try lia_destruct; try lia.
+Qed.
+
 Lemma wf_proc_rename_rvar :
   forall m n G D P,
     wf_proc m n G D P ->
@@ -2152,7 +2209,190 @@ Proof.
   induction P; intros; inversion H; existT_eq; subst; simpl.
   - unfold rename_var at 1.
     destruct (Nat.eq_dec r r0); subst.
-    + 
+    + rewrite HD in HD1.
+      assert (D' ≡[n] (D1 ⨥ n[r0 ↦ (cr - 1)] ⨥ n[r' ↦ cr'])). {
+        unfold ctxt_eq, sum, delta. intros.
+        pose proof (HD1 _ H0).
+        pose proof (HD1 _ HR).
+        pose proof (HD1 _ HR').
+        unfold ctxt_eq, sum, one, delta in H1, H2, H3.
+        lia_destruct.
+      }
+      assert (cr > 0). {
+        specialize (HD1 _ HR).
+        unfold ctxt_eq, sum, one, delta in HD1.
+        lia_destruct.
+      }
+      assert (D2 ≡[n] (one n r') ⨥ (D1 ⨥ n[r' ↦ (cr - 1) + cr'])). {
+        unfold ctxt_eq, sum, one, delta. intros.
+        pose proof (HD2 _ H2).
+        pose proof (HD2 _ HR).
+        pose proof (HD2 _ HR').
+        unfold ctxt_eq, sum, one, delta in H3, H4, H5.
+        lia_destruct.
+      } 
+      eapply wf_def; eauto.
+      eapply wf_oper_rename_rvar; eauto.
+      reflexivity.
+    + rewrite HD in HD1.
+      destruct (Nat.eq_dec r r'); subst; auto.
+      * assert (D' ≡[n] (D1 ⨥ n[r0 ↦ cr] ⨥ n[r' ↦ (cr' - 1)])). {
+          unfold ctxt_eq, sum, delta. intros.
+          pose proof (HD1 _ H0).
+          pose proof (HD1 _ HR).
+          pose proof (HD1 _ HR').
+          unfold ctxt_eq, sum, one, delta in H1, H2, H3.
+          lia_destruct.
+        }
+        assert (cr' > 0). {
+          specialize (HD1 _ HR').
+          unfold ctxt_eq, sum, one, delta in HD1.
+          lia_destruct.
+        }
+        assert (D2 ≡[n] (one n r') ⨥ (D1 ⨥ n[r' ↦ cr + (cr' - 1)])). {
+          unfold ctxt_eq, sum, one, delta. intros.
+          pose proof (HD2 _ H2).
+          pose proof (HD2 _ HR).
+          pose proof (HD2 _ HR').
+          unfold ctxt_eq, sum, one, delta in H3, H4, H5.
+          lia_destruct.
+        } 
+        eapply wf_def; eauto.
+        eapply wf_oper_rename_rvar; eauto.
+        reflexivity.
+      * assert (D1 r > 0). {
+          pose proof (HD1 _ HR0).
+          unfold ctxt_eq, sum, one, delta in H0.
+          lia_destruct.
+        }
+        pose proof (lctxt_subtract _ _ _ HR0 H0).
+        destruct H1 as (D1' & HD1').
+        rewrite HD1' in HD2.
+        repeat rewrite <- sum_assoc in HD2.
+        rewrite HD1' in HD1.
+        repeat rewrite <- sum_assoc in HD1.
+        apply sum_inv_l in HD1.
+        rewrite  sum_assoc in HD1.
+        eapply wf_def; eauto.
+        eapply wf_oper_rename_rvar with (D:=D')(D1:=D1'); eauto; try reflexivity.
+        -- specialize (HD1' _ HR).
+           unfold one, delta, sum in HD1'.
+           lia_destruct.
+        -- specialize (HD1' _ HR').
+           unfold one, delta, sum in HD1'.
+           lia_destruct.
+  - unfold rename_var.
+    rewrite HD in HD1; clear HD.
+    destruct (Nat.eq_dec r r0); subst.
+    + assert (D2 ≡[n] (one n r')). {
+        unfold ctxt_eq, one, delta. intros.
+        pose proof (HD2 _ H0).
+        rewrite H1; clear H1.
+        pose proof (HD1 _ HR).
+        pose proof (HD1 _ HR').
+        pose proof (HD1 _ H0).
+        unfold one, sum, delta.
+        unfold one, sum, delta in H1, H2, H3.
+        lia_destruct.
+      }
+      apply wf_app; eauto.
+    + destruct (Nat.eq_dec r r'); subst.
+      * assert (D2 ≡[n] (one n r')). {
+        unfold ctxt_eq, one, delta. intros.
+        pose proof (HD2 _ H0).
+        rewrite H1; clear H1.
+        pose proof (HD1 _ HR).
+        pose proof (HD1 _ HR').
+        pose proof (HD1 _ H0).
+        unfold one, sum, delta.
+        unfold one, sum, delta in H1, H2, H3.
+        lia_destruct.
+      }
+      apply wf_app; eauto.
+      * assert (D2 ≡[n] (one n r)). {
+        unfold ctxt_eq, one, delta. intros.
+        pose proof (HD2 _ H0).
+        rewrite H1; clear H1.
+        pose proof (HD1 _ HR).
+        pose proof (HD1 _ HR').
+        pose proof (HD1 _ H0).
+        unfold one, sum, delta.
+        unfold one, sum, delta in H1, H2, H3.
+        lia_destruct.
+      }
+      apply wf_app; eauto.
+  - rewrite HD in HD1.
+    apply lctxt_sum_inv_two in HD1; auto.
+    destruct HD1 as (D0' & D3' & EQ1 & EQ2 & EQ3 & HS1 & HS2 & HS3 & HS4 & HS5 & HS6).
+    rewrite EQ2 in WFP1.
+    rewrite EQ3 in WFP2.
+    rewrite EQ1 in HD2.
+
+    assert (D2 ≡[n] (D0' ⨥ n[r' ↦ D0 r + D0 r']) ⨥ (D3' ⨥ n[r' ↦ D3 r + D3 r'])). {
+      repeat rewrite <- sum_assoc.
+      rewrite (@sum_assoc _ n [r' ↦ D0 r + D0 r']).
+      rewrite (@sum_commutative _ _ D3').
+      repeat rewrite <- sum_assoc.
+      rewrite delta_sum.
+      assert ((D0 r + D0 r' + (D3 r + D3 r')) = cr + cr') by lia.
+      rewrite H0.
+      rewrite HD2.
+      repeat rewrite <- sum_assoc.
+      reflexivity.
+    }
+    rewrite H0.
+    eapply wf_par with (G1 := G1)(G2 :=G2); auto.
+    3 : { reflexivity. }
+    + eapply IHP1; auto.
+      apply WFP1.
+      4 : { reflexivity. }
+      auto.
+      auto.
+      reflexivity.
+    + eapply IHP2; auto.
+      apply WFP2.
+      4 : { reflexivity. }
+      auto.
+      auto.
+      reflexivity.
+Qed.
+                 
+    
+      
+                                                               
+    
+    
+        
+        
+        
+        
+
+
+
+
+
+        assert (D1 r > 0). {
+        pose proof (HD1 _ HR0).
+        pose proof (HD1 _ HR).
+        pose proof (HD1 _ HR').
+        unfold one, delta, sum in H0, H1, H2.
+        repeat match goal with
+               | [ H: context[lt_dec ?R1 ?R2] |- _ ] => destruct (lt_dec R1 R2); try lia
+               end.
+        repeat match goal with
+               | [ H: context[Nat.eq_dec ?R1 ?R2] |- _ ] => destruct (Nat.eq_dec R1 R2); subst; try lia
+               end.
+        rewrite HDR' in H0.
+        simpl in *.
+        
+        
+        
+
+                          
+               
+      eapply wf_def; eauto.
+
+      
 Admitted.
 
 
