@@ -1844,51 +1844,6 @@ Definition scope_extrude m m' n n' Q :=
     Q2.
 
 
-(*
-P |
-r <- (r1, r2)
-r <- (r1', r2')
-
-if r1 = r1' then
-  if r2 = r2' then
-    ren_id
-  else
-    rename_var r2 r2'
-else
- (* r1 <> r1' *)
- if r1 = r2 then
-   if r1' = r2' then
-     ren_id
-   else
-     rename_var r1' r2'
- else
-   if r1' = r2' then
-   rename r1 r2
- else
-   ren_compose (rename r1 r1') (rename r2 r2')
-
-
-*) 
-
-Definition cut_renaming n (r1 r2 r1' r2':nat) : ren n n :=
-  if Nat.eq_dec r1 r1' then
-    if Nat.eq_dec r2 r2' then
-      ren_id n
-    else
-      rename_var r2 r2'
-  else
-    if Nat.eq_dec r1 r2 then
-      if Nat.eq_dec r1' r2' then
-        ren_id n
-      else
-        rename_var r1' r2'
-    else
-      if Nat.eq_dec r1' r2' then
-        rename_var r1 r2
-      else
-        @ren_compose n n nat (rename_var r1 r1') (rename_var r2 r2').
-
-
 Lemma wf_prim_step_emp :
   forall m m' n n' r P (G : lctxt m),
     wf_term m n G (zero n) (bag m' n' (par P (par (def r emp) (def r emp)))) ->
@@ -2003,6 +1958,12 @@ Ltac lia_destruct :=
     end;
   repeat match goal with
     | [ H: context[Nat.eq_dec ?R1 ?R2] |- _ ] => destruct (Nat.eq_dec R1 R2); subst; try lia
+    end.
+
+Ltac lia_goal :=
+  repeat match goal with
+    | [ |- context[lt_dec ?R1 ?R2] ] => destruct (lt_dec R1 R2); try lia
+    | [ |- context[Nat.eq_dec ?R1 ?R2] ] => destruct (Nat.eq_dec R1 R2); try lia
     end.
 
 
@@ -2356,7 +2317,56 @@ Proof.
       auto.
       reflexivity.
 Qed.
-                 
+
+
+Ltac lctxt_solve :=
+            repeat match goal with
+                   [ H : context[lt_dec ?R1 ?R2] |- _ ] => destruct (lt_dec R1 R2); try lia
+                 end;
+          repeat match goal with
+                   [ H : context[Nat.eq_dec ?R1 ?R1] |- _ ] => destruct (Nat.eq_dec R1 R1); try lia
+                 end;
+          repeat match goal with
+                   [ H : ?X = ?X |- _] => clear H
+                 end;
+          intuition; lia_goal; lia_destruct.
+
+
+(*
+P |
+r <- (r1, r2)
+r <- (r1', r2')
+*) 
+
+Definition cut_renaming n (r1 r2 r1' r2':nat) : ren n n :=
+  if Nat.eq_dec r1 r1' then
+    if Nat.eq_dec r2 r2' then
+      ren_id n
+    else
+      rename_var r2 r2'
+  else
+    if Nat.eq_dec r2 r2' then
+      rename_var r1 r1'
+    else
+      if Nat.eq_dec r1 r2 then
+        if Nat.eq_dec r1' r2' then
+          ren_id n
+        else
+          rename_var r1' r2'
+      else
+        if Nat.eq_dec r1' r2' then
+          rename_var r1 r2
+        else
+          if Nat.eq_dec r1 r2' then
+            if Nat.eq_dec r1' r2 then
+              ren_id n
+            else
+              rename_var r1' r2
+          else
+            if Nat.eq_dec r1' r2 then
+              rename_var r1 r2'
+            else
+              @ren_compose n n nat (rename_var r1 r1') (rename_var r2 r2').
     
 Lemma wf_prim_step_tup :
   forall m m' n n' r r1 r2 r1' r2' P (G : lctxt m),
@@ -2392,126 +2402,606 @@ Proof.
   clear EQ4.
   rewrite H in EQ1; clear H.
   rewrite H0 in EQ2, HD0; clear H0.
+
   rewrite HD3 in HD0; clear HD3.
   rewrite HD4 in HD0; clear HD4.
+
   repeat rewrite <- sum_assoc in HD0.
   rewrite (@sum_assoc _ (one (n' + n) r2)) in HD0.
   rewrite (@sum_commutative _ (one (n' + n) r2)) in HD0.
   rewrite <- sum_assoc in HD0.
+
+   
+  assert (   (r < n') /\ (r1 < n') /\ (r1' < n') /\ (r2 < n') /\ (r2' < n')).
+  { eapply ctxt_app_c_zero_inv; eauto. }
+  destruct H as (HR0' & HR1' & HR2' & HR3' & HR4').
+
   
+  symmetry in EQ3.
+  assert (forall x, x < n' -> (DA1 ⨥ DA2) x = 2 \/ (DA1 ⨥ DA2) x = 0).
+  { intros. eapply (@ctxt_eq_imp _ nat _ _ (fun z => z = 2 \/ z = 0) EQ3); eauto. }
+
+  
+  rewrite <- HG in WFP1. clear HG.
+  rewrite EQ1 in WFP1.  clear EQ1. 
+
   assert (
       DA2 ≡[n']
         n' [r ↦ 2] ⨥ (one n' r1 ⨥ (one n' r1' ⨥ (one n' r2 ⨥ one n' r2')))).
   { unfold ctxt_eq.  intros x HX.
     assert (x < n' + n) by lia.
-    specialize (HD0 x H).
+    specialize (HD0 x H0).
     unfold ctxt_app, sum, one, delta, zero in HD0.
     unfold sum, one, delta.
     destruct (lt_dec x n'); try lia.
     rewrite HD0.
     clear HD0.
-    repeat match goal with
-           | [ |- context[lt_dec ?R1 ?R2] ] => destruct (lt_dec R1 R2); try lia
-           | [ |- context[Nat.eq_dec ?R1 ?R2] ] => destruct (Nat.eq_dec R1 R2); try lia
-           end.
-  }
-  assert (   (r < n') /\ (r1 < n') /\ (r1' < n') /\ (r2 < n') /\ (r2' < n')).
-  { eapply ctxt_app_c_zero_inv; eauto. }
-  
-  symmetry in EQ3.
-  assert (forall x, x < n' -> (DA1 ⨥ DA2) x = 2 \/ (DA1 ⨥ DA2) x = 0).
-  { intros. eapply (@ctxt_eq_imp _ nat _ _ (fun z => z = 2 \/ z = 0) EQ3); eauto. }
+    lia_goal.
+  } 
+
+  assert ( r <> r1 /\ r <> r1' /\ r <> r2 /\ r <> r2' ) as HNEQ.
+  { pose proof (H _ HR0').
+    pose proof (H _ HR1').
+    pose proof (H _ HR2').
+    pose proof (H _ HR3').
+    pose proof (H _ HR4').
+    pose proof (H0 _ HR0').
+    pose proof (H0 _ HR1').
+    pose proof (H0 _ HR2').
+    pose proof (H0 _ HR3').
+    pose proof (H0 _ HR4').
+    clear EQ2 EQ3 HD0 HD0 H H0.
+    unfold one, delta, sum in *.
+    lctxt_solve.
+  } 
+
   unfold cut_renaming.
 
-  rewrite <- HG in WFP1. clear HG.
-  rewrite EQ1 in WFP1.  clear EQ1. clear EQ2. clear HD0.
-  clear HR HR0 HR1 HR2 HR3 HR4.
-  clear UD'. clear EQ3.
-    
   destruct (Nat.eq_dec r1 r1'); subst.
   - destruct (Nat.eq_dec r2 r2'); subst.
-    + rewrite (@rename_rvar_id_proc _ (m' + m) (n' + n)).
-      * apply wf_bag with (G' := G')(D' := DA1); auto.
-        unfold ctxt_eq in H.
-        unfold one in H.
-        rewrite delta_sum in H.
-        rewrite (@sum_assoc _ (n' [r1' ↦ 1]))  in H.
-        rewrite delta_sum in H.
-        simpl in H.
+    * apply wf_bag with (G' := G')(D' := DA1); auto.
+      -- intros.
+         specialize (H _ H1).
+         specialize (H0 _ H1).
+         unfold sum, one, delta in H, H0.
+         lia_destruct.
+      -- rewrite rename_rvar_id_proc with (m := (m'+m)).
+         assumption.
+         eapply tpo_wf_ws; eauto.
+    * assert (DA1 ⊗ zero n ≡[n' + n]
+                (fun z =>
+                   if lt_dec z n' then
+                     if Nat.eq_dec z r then 0 else
+                       if Nat.eq_dec z r1' then 0 else
+                         if Nat.eq_dec z r2 then 0 else
+                           if Nat.eq_dec z r2' then 0 else
+                             DA1 z
+                   else 0)
+                ⨥ ((n' + n)[r2 ↦ 1])
+                ⨥ ((n' + n)[r2' ↦ 1])
+             ).
+                
+      { unfold ctxt_eq.
         intros.
-        specialize (H x H2).
-        specialize (H1 x H2).
-        unfold sum in H1.
-        rewrite H in H1. clear H.
-        unfold sum, delta in H1.
-        repeat match goal with
-               | [ H: context[lt_dec ?R1 ?R2] |- _ ] => destruct (lt_dec R1 R2); try lia
-               end.
-        repeat match goal with
-               | [ H: context[Nat.eq_dec ?R1 ?R2] |- _ ] => destruct (Nat.eq_dec R1 R2); subst; try lia
-               end.
-      * eapply tpo_wf_ws; eauto.
-    + rewrite (@sum_assoc _ (n' [r1' ↦ 1]) (n' [r1' ↦ 1]) _) in H.
-      rewrite delta_sum in H.
-      simpl in H.
-Admitted.
-
-
-  
-
-  
-  
-(*  
-  rewrite sum_zero_r in H1.
-  unfold one in H2.
-  eapply sum_app_inv in H2.
-  
-  clear EQ4.
-  subst.
-  assert (DA2 ≡[n'] ((n')[r ↦ 2] ⨥ ((n')[r1 ↦ 1] ⨥ ((n') [r1' ↦ 1] ⨥ ((n') [r2 ↦ 1] ⨥ (n') [r2' ↦ 1]))))).
-  { eapply lctxt_sum_3_inv1. apply EQ2. } 
-  clear EQ2.
-  unfold cut_renaming.
-  destruct (Nat.eq_dec r1 r1'); subst.
+        unfold ctxt_app, zero, sum, one, delta.
+        pose proof (H _ HR0').
+        pose proof (H _ HR1').
+        pose proof (H _ HR3').
+        pose proof (H _ HR4').
+        pose proof (HD0 _ H1).
+        pose proof (H0 _ HR0').
+        pose proof (H0 _ HR1').
+        pose proof (H0 _ HR3').
+        pose proof (H0 _ HR4').
+        destruct (lt_dec x n').
+        - pose proof (H0 _ l).
+          pose proof (H _ l).
+          clear H H0 HD0.
+          clear WFP1 EQ2 EQ3.
+          unfold ctxt_app, zero, sum, one, delta in *.
+          lctxt_solve.
+        - clear H H0 HD0.
+          clear WFP1 EQ2 EQ3.
+          unfold ctxt_app, zero, sum, one, delta in *.
+          lia_goal.
+      }
+      apply wf_bag with (G':=G')(D':=
+                                   ((fun z : var =>
+                                       if lt_dec z n' then
+                                         if Nat.eq_dec z r then 0 else
+                                           if Nat.eq_dec z r1' then 0 else
+                                             if Nat.eq_dec z r2 then 0 else
+                                               if Nat.eq_dec z r2' then 0 else DA1 z
+                                       else 0)
+                                      ⨥ (n' + n) [r2' ↦ 1+1])
+                        ).
+      -- auto.
+      -- unfold sum, delta.
+         intros.
+         lia_goal.
+         specialize (H _ H2).
+         specialize (H0 _ H2).
+         assert (x < (n' + n)) by lia.
+         specialize (H1 _ H3).
+         unfold sum, one, delta in H, H0, H1.
+         lctxt_solve.
+      -- eapply wf_proc_rename_rvar; eauto; simpl; try lia_goal.
+         unfold ctxt_eq, zero, ctxt_app, sum, delta. intros. simpl.
+         lctxt_solve.
   - destruct (Nat.eq_dec r2 r2'); subst.
-    + rewrite (@rename_rvar_id_proc _ (m' + m) (n' + n)).
-      * apply wf_bag with (G' := G')(D' := DA1); auto.
-        intros x HX.
-        specialize (H x HX).
-        specialize (UD' x HX).
-        unfold sum in *.
-        unfold delta in H.
-        repeat match goal with
-               | H : context [Nat.eq_dec ?R1 ?R2] |- _ => destruct (Nat.eq_dec R1 R2)
-               end; try lia.
-      * eapply tpo_wf_ws; eauto.
-    + rewrite (@sum_assoc _ (n' [r1' ↦ 1]) (n' [r1' ↦ 1]) _) in H.
-      rewrite delta_sum in H.
-      simpl in H.
-      rewrite sum_assoc in H.
-      
-
-      r1 <> r2 ->
-      forall x, x < n' ->
-           (x = r1 /\ D x = 1) \/
-             ( x = r2 /\ D x = 1) \/
-             
-      wf_proc (m' + m) (n' + n) (G' ⊗ G) (D ⊗ zero n) P
-      
-  - destruct (Nat.eq_dec r1 r2); subst.
-    + destruct (Nat.eq_dec r1' r2'); subst.
-      * rewrite (@rename_rvar_id_proc _ (m' + m) (n' + n)).
-        -- 
-        -- eapply tpo_wf_ws; eauto.
+    + assert (DA1 ⊗ zero n ≡[n' + n]
+                (fun z =>
+                   if lt_dec z n' then
+                     if Nat.eq_dec z r then 0 else
+                       if Nat.eq_dec z r1 then 0 else
+                         if Nat.eq_dec z r1' then 0 else
+                           if Nat.eq_dec z r2' then 0 else
+                             DA1 z
+                   else 0)
+                ⨥ ((n' + n)[r1 ↦ 1])
+                ⨥ ((n' + n)[r1' ↦ 1])
+             ).
+                
+      { unfold ctxt_eq.
+        intros.
+        pose proof (H _ HR0').
+        pose proof (H _ HR1').
+        pose proof (H _ HR2').        
+        pose proof (H _ HR3').
+        pose proof (HD0 _ H1).
+        pose proof (H0 _ HR0').
+        pose proof (H0 _ HR1').
+        pose proof (H0 _ HR2').        
+        pose proof (H0 _ HR3').
+        unfold ctxt_app, zero, sum, one, delta.
+        destruct (lt_dec x n').
+        - pose proof (H0 _ l).
+          pose proof (H _ l).
+          clear H H0 HD0.
+          clear WFP1 EQ2 EQ3.
+          unfold ctxt_app, zero, sum, one, delta in *.
+          lctxt_solve.
+        - clear H H0 HD0.
+          clear WFP1 EQ2 EQ3.
+          unfold ctxt_app, zero, sum, one, delta in *.
+          lctxt_solve.
+      }
+      apply wf_bag with (G':=G')(D':=
+                                   (fun z =>
+                                      if lt_dec z n' then
+                                        if Nat.eq_dec z r then 0 else
+                                          if Nat.eq_dec z r1 then 0 else
+                                            if Nat.eq_dec z r1' then 0 else
+                                              if Nat.eq_dec z r2' then 0 else
+                                                DA1 z
+                                      else 0)
+                                     ⨥ (n' + n)[r1' ↦ 2]).
+      -- auto.
+      -- unfold sum, delta.
+         intros.
+         lia_goal.
+         specialize (H _ H2).
+         specialize (H0 _ H2).
+         assert (x < (n' + n)) by lia.
+         specialize (H1 _ H3).
+         unfold sum, one, delta in H, H0, H1.
+         lctxt_solve.
+      -- eapply wf_proc_rename_rvar; eauto; simpl; try lia_goal.
+         unfold ctxt_eq, zero, ctxt_app, sum, delta. intros. simpl.
+         lctxt_solve.
+    + destruct (Nat.eq_dec r1 r2); subst.
+      * destruct (Nat.eq_dec r1' r2'); subst.
+        -- apply wf_bag with (G' := G')(D' := DA1); auto.
+           ++ intros.
+              specialize (H _ H1).
+              specialize (H0 _ H1).
+              unfold sum, one, delta in H, H0.
+              lia_destruct.
+           ++ rewrite rename_rvar_id_proc with (m := (m'+m)).
+              assumption.
+              eapply tpo_wf_ws; eauto.
+        -- assert (DA1 ⊗ zero n ≡[n' + n]
+                (fun z =>
+                   if lt_dec z n' then
+                     if Nat.eq_dec z r then 0 else
+                       if Nat.eq_dec z r2 then 0 else
+                         if Nat.eq_dec z r1' then 0 else
+                           if Nat.eq_dec z r2' then 0 else
+                             DA1 z
+                   else 0)
+                ⨥ ((n' + n)[r1' ↦ 1])
+                ⨥ ((n' + n)[r2' ↦ 1])
+             ).
            
-    
-*)  
+           { unfold ctxt_eq.
+             intros.
+             pose proof (H _ HR0').
+             pose proof (H _ HR1').
+             pose proof (H _ HR2').        
+             pose proof (H _ HR4').
+             pose proof (HD0 _ H1).
+             pose proof (H0 _ HR0').
+             pose proof (H0 _ HR1').
+             pose proof (H0 _ HR2').        
+             pose proof (H0 _ HR4').
+             unfold ctxt_app, zero, sum, one, delta.
+             destruct (lt_dec x n').
+             - pose proof (H0 _ l).
+               pose proof (H _ l).
+               clear H H0 HD0.
+               clear WFP1 EQ2 EQ3.
+               unfold ctxt_app, zero, sum, one, delta in *.
+               lctxt_solve.
+             - clear H H0 HD0.
+               clear WFP1 EQ2 EQ3.
+               unfold ctxt_app, zero, sum, one, delta in *.
+               lctxt_solve.
+           }
+           apply wf_bag with (G':=G')(D':=
+                                        (fun z =>
+                                           if lt_dec z n' then
+                                             if Nat.eq_dec z r then 0 else
+                                               if Nat.eq_dec z r2 then 0 else
+                                                 if Nat.eq_dec z r1' then 0 else
+                                                   if Nat.eq_dec z r2' then 0 else
+                                                     DA1 z
+                                           else 0)
+                                          ⨥ (n' + n)[r2' ↦ 2]).
+           ++ auto.
+           ++ unfold sum, delta.
+              intros.
+              lia_goal.
+              specialize (H _ H2).
+              specialize (H0 _ H2).
+              assert (x < (n' + n)) by lia.
+              specialize (H1 _ H3).
+              unfold sum, one, delta in H, H0, H1.
+              lctxt_solve.
+           ++ eapply wf_proc_rename_rvar; eauto; simpl; try lia_goal.
+              unfold ctxt_eq, zero, ctxt_app, sum, delta. intros. simpl.
+              lctxt_solve.
+      * destruct (Nat.eq_dec r1' r2'); subst.
+        -- assert (DA1 ⊗ zero n ≡[n' + n]
+                (fun z =>
+                   if lt_dec z n' then
+                     if Nat.eq_dec z r then 0 else
+                       if Nat.eq_dec z r2 then 0 else
+                         if Nat.eq_dec z r1 then 0 else
+                           if Nat.eq_dec z r2' then 0 else
+                             DA1 z
+                   else 0)
+                ⨥ ((n' + n)[r1 ↦ 1])
+                ⨥ ((n' + n)[r2 ↦ 1])
+             ).
+                
+      { unfold ctxt_eq.
+        intros.
+        pose proof (H _ HR0').
+        pose proof (H _ HR1').
+        pose proof (H _ HR2').        
+        pose proof (H _ HR4').
+        pose proof (HD0 _ H1).
+        pose proof (H0 _ HR0').
+        pose proof (H0 _ HR1').
+        pose proof (H0 _ HR2').        
+        pose proof (H0 _ HR4').
+        unfold ctxt_app, zero, sum, one, delta.
+        destruct (lt_dec x n').
+        - pose proof (H0 _ l).
+          pose proof (H _ l).
+          clear H H0 HD0.
+          clear WFP1 EQ2 EQ3.
+          unfold ctxt_app, zero, sum, one, delta in *.
+          lctxt_solve.
+        - clear H H0 HD0.
+          clear WFP1 EQ2 EQ3.
+          unfold ctxt_app, zero, sum, one, delta in *.
+          lctxt_solve.
+      }
+      apply wf_bag with (G':=G')(D':=
+                                   (fun z =>
+                                      if lt_dec z n' then
+                                        if Nat.eq_dec z r then 0 else
+                                          if Nat.eq_dec z r2 then 0 else
+                                            if Nat.eq_dec z r1 then 0 else
+                                              if Nat.eq_dec z r2' then 0 else
+                                                DA1 z
+                                      else 0)
+                                     ⨥ (n' + n)[r2 ↦ 2]).
+           ++ auto.
+           ++ unfold sum, delta.
+              intros.
+              lia_goal.
+              specialize (H _ H2).
+              specialize (H0 _ H2).
+              assert (x < (n' + n)) by lia.
+              specialize (H1 _ H3).
+              unfold sum, one, delta in H, H0, H1.
+              lctxt_solve.
+           ++ eapply wf_proc_rename_rvar; eauto; simpl; try lia_goal.
+              unfold ctxt_eq, zero, ctxt_app, sum, delta. intros. simpl.
+              lctxt_solve.
+        -- destruct (Nat.eq_dec r1 r2'); subst.
+           ++ destruct (Nat.eq_dec r1' r2); subst.
+              ** apply wf_bag with (G' := G')(D' := DA1); auto.
+                 --- intros.
+                     specialize (H _ H1).
+                     specialize (H0 _ H1).
+                     unfold sum, one, delta in H, H0.
+                     lia_destruct.
+                 --- rewrite rename_rvar_id_proc with (m := (m'+m)).
+                     assumption.
+                     eapply tpo_wf_ws; eauto.
+              ** assert (DA1 ⊗ zero n ≡[n' + n]
+                           (fun z =>
+                              if lt_dec z n' then
+                                if Nat.eq_dec z r then 0 else
+                                  if Nat.eq_dec z r2 then 0 else
+                                    if Nat.eq_dec z r1' then 0 else
+                                      if Nat.eq_dec z r2' then 0 else
+                                        DA1 z
+                              else 0)
+                           ⨥ ((n' + n)[r1' ↦ 1])
+                           ⨥ ((n' + n)[r2 ↦ 1])
+                        ).
+                 { unfold ctxt_eq.
+                   intros.
+                   pose proof (H _ HR0').
+                   pose proof (H _ HR1').
+                   pose proof (H _ HR2').        
+                   pose proof (H _ HR3').
+                   pose proof (HD0 _ H1).
+                   pose proof (H0 _ HR0').
+                   pose proof (H0 _ HR1').
+                   pose proof (H0 _ HR2').        
+                   pose proof (H0 _ HR3').
+                   unfold ctxt_app, zero, sum, one, delta.
+                   destruct (lt_dec x n').
+                   - pose proof (H0 _ l).
+                     pose proof (H _ l).
+                     clear H H0 HD0.
+                     clear WFP1 EQ2 EQ3.
+                     unfold ctxt_app, zero, sum, one, delta in *.
+                     lctxt_solve.
+                   - clear H H0 HD0.
+                     clear WFP1 EQ2 EQ3.
+                     unfold ctxt_app, zero, sum, one, delta in *.
+                     lctxt_solve.
+                 }
+                 apply wf_bag with (G':=G')(D':=
+                                   (fun z =>
+                                      if lt_dec z n' then
+                                        if Nat.eq_dec z r then 0 else
+                                          if Nat.eq_dec z r2 then 0 else
+                                            if Nat.eq_dec z r1' then 0 else
+                                              if Nat.eq_dec z r2' then 0 else
+                                                DA1 z
+                                      else 0)
+                                     ⨥ (n' + n)[r2 ↦ 2]).
+                 --- auto.
+                 --- unfold sum, delta.
+                     intros.
+                     lia_goal.
+                     specialize (H _ H2).
+                     specialize (H0 _ H2).
+                     assert (x < (n' + n)) by lia.
+                     specialize (H1 _ H3).
+                     unfold sum, one, delta in H, H0, H1.
+                     lctxt_solve.
+                 --- eapply wf_proc_rename_rvar; eauto; simpl; try lia_goal.
+                     unfold ctxt_eq, zero, ctxt_app, sum, delta. intros. simpl.
+                     lctxt_solve.
+           ++ destruct (Nat.eq_dec r1' r2); subst.
+              ** assert (DA1 ⊗ zero n ≡[n' + n]
+                           (fun z =>
+                              if lt_dec z n' then
+                                if Nat.eq_dec z r then 0 else
+                                  if Nat.eq_dec z r1 then 0 else
+                                    if Nat.eq_dec z r2 then 0 else
+                                      if Nat.eq_dec z r2' then 0 else
+                                        DA1 z
+                              else 0)
+                           ⨥ ((n' + n)[r1 ↦ 1])
+                           ⨥ ((n' + n)[r2' ↦ 1])
+                        ).
+                 { unfold ctxt_eq.
+                   intros.
+                   pose proof (H _ HR0').
+                   pose proof (H _ HR1').
+                   pose proof (H _ HR2').        
+                   pose proof (H _ HR4').
+                   pose proof (HD0 _ H1).
+                   pose proof (H0 _ HR0').
+                   pose proof (H0 _ HR1').
+                   pose proof (H0 _ HR2').        
+                   pose proof (H0 _ HR4').
+                   unfold ctxt_app, zero, sum, one, delta.
+                   destruct (lt_dec x n').
+                   - pose proof (H0 _ l).
+                     pose proof (H _ l).
+                     clear H H0 HD0.
+                     clear WFP1 EQ2 EQ3.
+                     unfold ctxt_app, zero, sum, one, delta in *.
+                     lctxt_solve.
+                   - clear H H0 HD0.
+                     clear WFP1 EQ2 EQ3.
+                     unfold ctxt_app, zero, sum, one, delta in *.
+                     lctxt_solve.
+                 }
+                 apply wf_bag with (G':=G')(D':=
+                                   (fun z =>
+                                      if lt_dec z n' then
+                                        if Nat.eq_dec z r then 0 else
+                                          if Nat.eq_dec z r1 then 0 else
+                                            if Nat.eq_dec z r2 then 0 else
+                                              if Nat.eq_dec z r2' then 0 else
+                                                DA1 z
+                                      else 0)
+                                     ⨥ (n' + n)[r2' ↦ 2]).
+                 --- auto.
+                 --- unfold sum, delta.
+                     intros.
+                     lia_goal.
+                     specialize (H _ H2).
+                     specialize (H0 _ H2).
+                     assert (x < (n' + n)) by lia.
+                     specialize (H1 _ H3).
+                     unfold sum, one, delta in H, H0, H1.
+                     lctxt_solve.
+                 --- eapply wf_proc_rename_rvar; eauto; simpl; try lia_goal.
+                     unfold ctxt_eq, zero, ctxt_app, sum, delta. intros. simpl.
+                     lctxt_solve.
+              ** rewrite <- rename_rvar_proc_compose.
 
-  
+                 assert (DA1 ⊗ zero n ≡[n' + n]
+                           ((fun z =>
+                              if lt_dec z n' then
+                                if Nat.eq_dec z r then 0 else
+                                  if Nat.eq_dec z r1 then 0 else
+                                    if Nat.eq_dec z r1' then 0 else 
+                                      if Nat.eq_dec z r2 then 0 else
+                                        if Nat.eq_dec z r2' then 0 else
+                                          DA1 z
+                              else 0)
+                              ⨥ ((n' + n)[r2 ↦ 1])
+                              ⨥ ((n' + n)[r2' ↦ 1])
+                           )
+                           ⨥ ((n' + n)[r1 ↦ 1])
+                           ⨥ ((n' + n)[r1' ↦ 1])
+                        ).
+                 { unfold ctxt_eq.
+                   intros.
+                   
+                   unfold ctxt_app, zero, sum, one, delta.
+                   pose proof (H _ HR0').
+                   pose proof (H _ HR1').
+                   pose proof (H _ HR2').
+                   pose proof (H _ HR3').
+                   pose proof (H _ HR4').
+                   pose proof (HD0 _ H1).
+                   pose proof (H0 _ HR0').
+                   pose proof (H0 _ HR1').
+                   pose proof (H0 _ HR2').
+                   pose proof (H0 _ HR3').                   
+                   pose proof (H0 _ HR4').
+                   destruct (lt_dec x n').
+                   - pose proof (H0 _ l).
+                     pose proof (H _ l).
+                     clear H H0 HD0.
+                     clear WFP1 EQ2 EQ3.
+                     unfold ctxt_app, zero, sum, one, delta in *.
+                     lctxt_solve.
+                   - clear H H0 HD0.
+                     clear WFP1 EQ2 EQ3.
+                     unfold ctxt_app, zero, sum, one, delta in *.
+                     lctxt_solve.
+                 } 
 
-
-
-
+                 
+                 assert (wf_proc (m' + m) (n' + n) (G' ⊗ G)
+                           ((((fun z =>
+                                if lt_dec z n' then
+                                  if Nat.eq_dec z r then 0 else
+                                    if Nat.eq_dec z r1 then 0 else
+                                      if Nat.eq_dec z r1' then 0 else 
+                                        if Nat.eq_dec z r2 then 0 else
+                                          if Nat.eq_dec z r2' then 0 else
+                                            DA1 z
+                                else 0)
+                               ⨥ ((n' + n)[r2 ↦ 1])
+                               ⨥ ((n' + n)[r2' ↦ 1])
+                             )
+                               ⨥ ((n' + n)[r1' ↦ 2])
+                            ) ⊗ zero n)
+                           (@rename_rvar_proc (n' + n) (n' + n) (rename_var r1 r1') P)).
+                 { eapply wf_proc_rename_rvar with
+                     (D1 := ((fun z => if lt_dec z n' then
+                                      if Nat.eq_dec z r then 0 else
+                                        if Nat.eq_dec z r1 then 0 else
+                                          if Nat.eq_dec z r1' then 0 else 
+                                            if Nat.eq_dec z r2 then 0 else
+                                              if Nat.eq_dec z r2' then 0 else
+                                                DA1 z
+                                    else 0)
+                               ⨥ ((n' + n)[r2 ↦ 1])
+                               ⨥ ((n' + n)[r2' ↦ 1])
+                     )); eauto.
+                   - unfold sum, delta. lia_goal.
+                   - unfold sum, delta. lia_goal.
+                   - unfold ctxt_eq, ctxt_app, zero, delta, sum. intros. lctxt_solve.
+                 } 
+                     
+                 eapply wf_bag with (G':=G')
+                                    (D' := ((fun z =>
+                                               if lt_dec z n' then
+                                                 if Nat.eq_dec z r then 0 else
+                                                   if Nat.eq_dec z r1 then 0 else
+                                                     if Nat.eq_dec z r1' then 0 else 
+                                                       if Nat.eq_dec z r2 then 0 else
+                                                         if Nat.eq_dec z r2' then 0 else
+                                                           DA1 z
+                                               else 0)
+                                              ⨥ ((n' + n)[r2' ↦ 2])
+                                           )
+                                             ⨥ ((n' + n)[r1' ↦ 2])).
+                 --- auto.
+                 --- unfold sum, delta.
+                     intros.
+                     pose proof (H _ H3).
+                     pose proof (H _ HR2').
+                     pose proof (H _ HR4').
+                     assert (x < (n' + n)) by lia.
+                     pose proof (HD0 _ H7).
+                     unfold ctxt_app, sum, zero, one, delta in H, H4, H5, H6, H8.
+                     lia_goal.
+                     clear H1 H2.
+                     lia_destruct.
+                 --- rewrite <- sum_assoc.
+                     rewrite (@sum_commutative _ ((n' + n)[r2' ↦ 2])).
+                     rewrite sum_assoc.
+                     repeat rewrite <- sum_assoc in H2.
+                     rewrite (@sum_commutative _ ((n' + n)[r2' ↦ 1])) in H2.
+                     repeat rewrite <- sum_assoc in H2.
+                     rewrite (@sum_assoc _ (n' + n) [r2 ↦ 1]) in H2.
+                     rewrite (@sum_commutative _ ((n' + n)[r2 ↦ 1])) in H2.
+                     repeat rewrite sum_assoc in H2.
+                     
+                     eapply wf_proc_rename_rvar with (cr:=1)(cr':=1)
+                       (D1 := (((fun z => if lt_dec z n' then
+                                        if Nat.eq_dec z r then 0 else
+                                          if Nat.eq_dec z r1 then 0 else
+                                            if Nat.eq_dec z r1' then 0 else 
+                                              if Nat.eq_dec z r2 then 0 else
+                                                if Nat.eq_dec z r2' then 0 else
+                                                  DA1 z
+                                      else 0)
+                                  ⨥ (n' + n)[r1' ↦ 2]))); eauto.
+                     +++ unfold sum, delta.
+                         intros.
+                         lia_goal.
+                     +++ unfold sum, delta.
+                         lia_goal.
+                     +++ unfold ctxt_eq, ctxt_app, sum, zero, one, delta.
+                         intros.
+                         clear H1 H2.
+                         destruct (lt_dec x n').
+                         *** pose proof (H0 _ l).
+                             pose proof (H _ l).
+                             unfold sum, one, delta in H1, H2.
+                             lia_goal.
+                         *** lia_goal.
+                     +++ unfold ctxt_eq, ctxt_app, sum, zero, one, delta.
+                         intros.
+                         clear H1 H2.
+                         destruct (lt_dec x n').
+                         *** pose proof (H0 _ l).
+                             pose proof (H _ l).
+                             unfold sum, one, delta in H1, H2.
+                             lia_goal.
+                         *** lia_goal.
+Qed.
+                     
+                   
 
 Inductive prim_step : nat -> nat -> term -> term -> Prop :=
 | step_emp_cut :
@@ -2546,6 +3036,10 @@ Inductive  step : nat -> nat -> term -> term -> Prop :=
     t1 ≈t t1' ->
     prim_step m n t1' t2 ->
     step m n t1 t2.
+
+
+
+
 
 (* Canonical forms -- is it needed?  ----------------------------------- *)
 
