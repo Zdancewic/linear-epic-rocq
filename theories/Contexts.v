@@ -2183,9 +2183,18 @@ Qed.
 (* One piece of an Ltac definition that might be useful below *)
 Ltac destruct_Nat_eq_decs :=
   match goal with
-    [ |- ctxt(Nat.eq_dec ?R1 ?R2) ] => destruct (Nat.eq_dec R1 R2)
+    [ |- ctxt(Nat.eq_dec ?R1 ?R2) ] => destruct (Nat.eq_dec R1 R2); try lia
   end.
 
+(*
+I don't know if this is the most elegant approach, and it did take quite some time to run
+'all: destruction.' the first time I stepped through the proof.
+*)
+Ltac destruction :=
+ repeat match goal with
+           | [ |- context[lt_dec ?R1 ?R2] ] => destruct (lt_dec R1 R2); try lia
+           | [ |- context[Nat.eq_dec ?R1 ?R2] ] => destruct (Nat.eq_dec R1 R2); try lia
+           end. 
 
 Lemma lctxt_sum_3_inv1 : forall n' n r r1 r2 r1' r2' (D : lctxt n'),
     ((n' + n) [r ↦ 1] ⨥ ((n' + n) [r1 ↦ 1] ⨥ (n' + n) [r2 ↦ 1]))
@@ -2198,11 +2207,15 @@ intros.
 apply fun_apply with (x:=x) in H.
 unfold ctxt_app, delta, sum in *.
 unfold zero in H.
-destruct (lt_dec x n').
+symmetry in H; destruct (lt_dec x n').
+- repeat match goal with
+           | [ |- _ ] => destruct (lt_dec _ (n' + n)) in H; try lia
+           | [ |- _ ] => destruct (Nat.eq_dec _ _) in H; try lia
+           end.
+  all : destruction.
+- lia.
+Qed.    
 
-
-  (* TODO: Keely -- this proof will definitely benefit from Ltac *)
-Admitted.
 
 
 
