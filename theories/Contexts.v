@@ -1075,7 +1075,27 @@ Module Renamings.
     intros y.
     destruct (lt_dec x n); try lia.
     destruct (Nat.eq_dec x (r y)); subst.
-  Admitted.
+    
+    - destruct (lt_dec (r_inv (r y)) n); try lia.
+      unfold ren_inverses in HEQ. unfold wf_ren in WFR.
+      assert (y < n).
+      { specialize (WFR y); destruct WFR. lia. }
+      specialize (HEQ y); destruct HEQ; try lia.
+      destruct (Nat.eq_dec (r_inv (r y)) y); try lia.
+      unfold ren_inverses in HEQ. 
+      specialize (HEQ (r y)); destruct HEQ; try lia.
+      unfold wf_ren in HWF.
+      specialize (HWF (r y)); try lia.
+
+    - destruct (lt_dec (r_inv x) n); try lia.
+      destruct (Nat.eq_dec (r_inv x) y); try lia.
+      unfold ren_inverses in HEQ.
+      assert (x = (r y)).
+      { specialize (HEQ x); destruct HEQ. 
+        assumption.
+        subst; symmetry; assumption. }
+      contradiction.
+  Qed.
 
   Lemma ren_compose_zero :
     forall n (r : ren n n),
