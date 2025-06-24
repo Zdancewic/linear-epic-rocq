@@ -2449,11 +2449,43 @@ apply wf_tpo_ind; intros.
   rewrite H0 in H; clear H0; try assumption.
 Qed.
 
+
+(*
+?? Lemma wf_ren_rvar_proc :
+    forall m m' n n' (G : lctxt m') (D : lctxt n') Q,
+    wf_proc (m' + m) n' (G ⊗ zero m) D Q ->
+    wf_proc (m + m') (n + n') (zero m ⊗ G) (zero n ⊗ D) (rename_rvar_proc m m')
+
+
+Definition ren_f_extrude m m' : ren (m + m') (m' + m) :=
+  fun x =>
+    if lt_dec x m' then x + m else (x - m').
+
+?? Lemma wf_ren_extrude :
+  forall m m' (G : lctxt m) (D : lctxt m') Q,
+    wf_proc (ren_f_extrude m m') Q
+
+Definition scope_extrude m m' n n' Q :=
+    let Q1 := @rename_rvar_proc n (n' + n) (fun x => n + x) Q in
+    let Q2 := @rename_fvar_proc (m + m') (m' + m) (ren_f_extrude m m') Q1 in
+    Q2.
+*)
+
 Lemma wf_scope_extrude :
   forall m m' n n' (G : lctxt m') (D : lctxt n') Q,
    wf_proc (m' + m) n' (G ⊗ zero m) D Q ->
    wf_proc (m + m') (n + n') (zero m ⊗ G) (zero n ⊗ D) (scope_extrude m m' n n' Q).
 Proof.
+intros.
+destruct Q.
+- unfold scope_extrude.
+  unfold ren_f_extrude.
+  unfold rename_rvar_proc.
+  unfold rename_rvar_oper.
+  destruct o.
+  + unfold rename_fvar_proc.
+    
+  
 
 Admitted.
 
