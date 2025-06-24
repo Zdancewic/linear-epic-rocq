@@ -2319,7 +2319,6 @@ Proof.
       reflexivity.
 Qed.
 
-<<<<<<< HEAD
 Lemma ctxt_app_assoc_zero :
   forall (j k l : nat) 
          (J : lctxt j)
@@ -2515,58 +2514,6 @@ Proof.
 Admitted. 
 
 
-=======
-
-Ltac lctxt_solve :=
-            repeat match goal with
-                   [ H : context[lt_dec ?R1 ?R2] |- _ ] => destruct (lt_dec R1 R2); try lia
-                 end;
-          repeat match goal with
-                   [ H : context[Nat.eq_dec ?R1 ?R1] |- _ ] => destruct (Nat.eq_dec R1 R1); try lia
-                 end;
-          repeat match goal with
-                   [ H : ?X = ?X |- _] => clear H
-                 end;
-          intuition; lia_goal; lia_destruct.
-
-
-(*
-P |
-r <- (r1, r2)
-r <- (r1', r2')
-*) 
-
-Definition cut_renaming n (r1 r2 r1' r2':nat) : ren n n :=
-  if Nat.eq_dec r1 r1' then
-    if Nat.eq_dec r2 r2' then
-      ren_id n
-    else
-      rename_var r2 r2'
-  else
-    if Nat.eq_dec r2 r2' then
-      rename_var r1 r1'
-    else
-      if Nat.eq_dec r1 r2 then
-        if Nat.eq_dec r1' r2' then
-          ren_id n
-        else
-          rename_var r1' r2'
-      else
-        if Nat.eq_dec r1' r2' then
-          rename_var r1 r2
-        else
-          if Nat.eq_dec r1 r2' then
-            if Nat.eq_dec r1' r2 then
-              ren_id n
-            else
-              rename_var r1' r2
-          else
-            if Nat.eq_dec r1' r2 then
-              rename_var r1 r2'
-            else
-              @ren_compose n n nat (rename_var r1 r1') (rename_var r2 r2').
-    
->>>>>>> b4b6f4d8ea4995e628603e504f36e95ec52e8c42
 Lemma wf_prim_step_tup :
   forall m m' n n' r r1 r2 r1' r2' P (G : lctxt m),
     wf_term m n G (zero n) (bag m' n' (par P (par (def r (tup r1 r2)) (def r (tup r1' r2'))))) ->
