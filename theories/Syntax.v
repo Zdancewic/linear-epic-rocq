@@ -2554,18 +2554,31 @@ assert (G  ≡[m'] (zero m')).
   unfold zero, ctxt_app, one, delta in H0.
   specialize (H0 x). apply H0 in Hx; clear H0.
   replace (m + f) with (f + m) in Hx by lia; assumption.
-  (* When we get here, I don't think f can 'live in' G... *)
-  unfold zero, ctxt_app, one, delta. intros y Hy.
-  unfold zero, ctxt_app, one, delta in HG.
-  specialize (HG (y - m)). assert (y - m < m' + m) by lia.
-  apply HG in H1. destruct (lt_dec (y - m) m') in H1.
-  rewrite H1. destruction.
-  destruction.
-  (* ending up with 0 = 1...
-    when f >= m', 
-    one (m+m') (m+f) -> m+f too big?
-    (zero m) ⊗ G \equiv[m+m'] (one (m+m') (f+m)) ? *)
-   
+  assert (((@ctxt_app _ m' m G (zero m)) f) = 0).
+  { unfold zero, ctxt_app. destruct (lt_dec f m'); try lia. }
+  assert (((one (m'+ m) f) f) = 1). apply delta_id; assumption.
+  unfold ctxt_eq in HG. specialize (HG f). apply HG in HF. lia.
+  unfold zero, ctxt_app. intros x Hx.
+  destruct (lt_dec x n); try lia. 
+  rewrite HD0; try lia. unfold zero; try lia.
+- eapply wf_def with (D' := (@ctxt_app _ n n' (zero n) D')); try lia.
+  unfold zero, ctxt_app, one, delta, sum.
+  intros x Hx. destruction.
+  rewrite HD.
+  unfold one, delta, sum. destruction. try lia.
+  simpl. rewrite HD; unfold one, delta, sum.
+  destruction. lia.
+  apply wf_lam.
+  assert (G  ≡[m'] (zero m')). 
+  { unfold ctxt_eq, zero. intros x Hx. 
+    unfold ctxt_eq, ctxt_app, zero, ctxt_eq in HG.
+    specialize (HG x).
+    assert (x < m' + m) by lia. apply HG in H0.
+    destruct (lt_dec x m') in H0; try lia. }
+  rewrite H0. unfold zero, ctxt_app; intros x Hx; destruction; try lia.
+  unfold zero, ctxt_app; intros x Hx; destruction; rewrite HD0; 
+  unfold zero; try lia.
+  + (* need lemma to show wf_term ->  wf_term with (ren_f_extrude m m') t*)
 
 Admitted.
 
