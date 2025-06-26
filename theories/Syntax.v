@@ -2552,12 +2552,19 @@ assert (G  ≡[m'] (zero m')).
   destruct (lt_dec f m').
   unfold zero, ctxt_app, one, delta. intros x Hx.
   unfold zero, ctxt_app, one, delta in H0.
-  specialize (H0 x). apply H0 in Hx.
+  specialize (H0 x). apply H0 in Hx; clear H0.
   replace (m + f) with (f + m) in Hx by lia; assumption.
-  rewrite H0. 
+  (* When we get here, I don't think f can 'live in' G... *)
   unfold zero, ctxt_app, one, delta. intros y Hy.
+  unfold zero, ctxt_app, one, delta in HG.
+  specialize (HG (y - m)). assert (y - m < m' + m) by lia.
+  apply HG in H1. destruct (lt_dec (y - m) m') in H1.
+  rewrite H1. destruction.
   destruction.
-  
+  (* ending up with 0 = 1...
+    when f >= m', 
+    one (m+m') (m+f) -> m+f too big?
+    (zero m) ⊗ G \equiv[m+m'] (one (m+m') (f+m)) ? *)
    
 
 Admitted.
