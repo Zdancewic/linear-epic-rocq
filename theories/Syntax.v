@@ -2450,25 +2450,23 @@ Qed.
 
 
 (*
-?? Lemma wf_ren_rvar_proc :
-    forall m m' n n' (G : lctxt m') (D : lctxt n') Q,
-    wf_proc (m' + m) n' (G ⊗ zero m) D Q ->
-    wf_proc (m + m') (n + n') (zero m ⊗ G) (zero n ⊗ D) (rename_rvar_proc m m')
-
 Definition ren_f_extrude m m' : ren (m + m') (m' + m) :=
   fun x =>
-    if lt_dec x m' then x + m else (x - m').
-
-?? Lemma wf_ren_extrude :
-  forall m m' (G : lctxt m) (D : lctxt m') Q,
-    wf_proc (ren_f_extrude m m') Q
-
-Definition scope_extrude m m' n n' Q :=
-    let Q1 := @rename_rvar_proc n (n' + n) (fun x => n + x) Q in
-    let Q2 := @rename_fvar_proc (m + m') (m' + m) (ren_f_extrude m m') Q1 in
-    Q2.
+    if lt_dec x m' then x + m else (x - m')
 *)
+Lemma wf_rename_fvar_term :
+  forall m m' (t : term),
+    wf_term (m' + m) 1 (zero (m' + m)) (one 1 0) t ->
+    wf_term (m + m') 1 (zero (m + m')) (one 1 0) 
+    (rename_fvar_term (ren_f_extrude m m') t).
+Proof.
+  intros.
+  
+Admitted.
 
+
+(* Can definitely make this more concise by unfolding everything at the outset.
+  But I am finding it conceptually easier to work with 'folded' defs for now. *)
 Lemma wf_scope_extrude :
   forall m m' n n' (G : lctxt m') (D : lctxt n') Q,
    wf_proc (m' + m) n' (G ⊗ zero m) D Q ->
@@ -2578,8 +2576,29 @@ assert (G  ≡[m'] (zero m')).
   rewrite H0. unfold zero, ctxt_app; intros x Hx; destruction; try lia.
   unfold zero, ctxt_app; intros x Hx; destruction; rewrite HD0; 
   unfold zero; try lia.
-  + (* need lemma to show wf_term ->  wf_term with (ren_f_extrude m m') t*)
-
+  + apply wf_rename_fvar_term; assumption.
+- apply wf_app; try lia.
+  unfold ren_f_extrude; destruct (lt_dec f m'); try lia.
+  assert (G  ≡[m'] (zero m')). 
+  { unfold ctxt_eq, zero. intros x Hx. 
+    unfold ctxt_eq, ctxt_app, zero, ctxt_eq in HG.
+    specialize (HG x).
+    assert (x < m' + m) by lia. apply HG in H0.
+    destruct (lt_dec x m') in H0; try lia. }
+  rewrite H0. unfold zero, ctxt_app; intros x Hx; destruction; try lia.
+  unfold zero, ctxt_app, one, delta. 
+  intros x Hx; destruction.
+  all : (rewrite HD; unfold one, delta; destruction; try lia).
+- unfold scope_extrude.
+  unfold ren_f_extrude.
+  unfold rename_rvar_proc.
+  unfold rename_rvar_oper.
+  (* G1 and G2 are wrong here *) 
+  eapply wf_par with (G1 := (@ctxt_app _ m m' (zero m) G1))
+                     (G2 := (@ctxt_app _ m m' (zero m) G2))
+                     (D1 := (@ctxt_app _ n n' (zero n) D1))
+                     (D2 := (@ctxt_app _ n n' (zero n) D2)).
+  
 Admitted.
 
 
