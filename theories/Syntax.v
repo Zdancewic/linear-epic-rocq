@@ -1,6 +1,7 @@
 From Stdlib Require Import
   Arith            
   Classes.RelationClasses
+  Logic.FunctionalExtensionality
   Morphisms
   Program.Basics
   List
@@ -529,8 +530,7 @@ with wf_proc : forall (m n:nat), lctxt m -> lctxt n -> proc -> Prop :=
     (WFP1 : wf_proc m n G1 D1 P1)
     (WFP2 : wf_proc m n G2 D2 P2)
     (HG : G ≡[m] (G1 ⨥ G2))
-    (HD : D ≡[n] (D1 ⨥ D2))
-  ,
+    (HD : D ≡[n] (D1 ⨥ D2)),
     wf_proc m n G D (par P1 P2)
             
 with wf_oper : forall (m n:nat), lctxt m -> lctxt n -> oper -> Prop :=
@@ -1114,6 +1114,17 @@ Lemma rename_fvar_id_oper :
 Proof.
   apply rename_fvar_id_tpo.
 Qed.
+
+
+(* alpha-equivalence 
+
+t1 seq t1' peq t2 => t1 aeq t2 
+
+symmetry, reflexivity, transitivity of aeq
+
+-> strong confluence t steps t1, t steps t2
+exists t1' t2' st t1' aeq t2' and t1 steps t1' and t2 steps t2'
+*)
 
 
 (* nu equivalence -------------------------------------------------------- *)
@@ -1834,13 +1845,19 @@ Example ex_P : proc :=
 
 Eval compute in retract_rvar_proc 1 1 3 ex_P0.
 
-Definition ren_f_extrude m m' : ren (m + m') (m' + m) :=
+
+Definition ren_f_extrude_str m0 m1 m2 :  ren (m0 + (m1 + m2)) (m0 + (m2 + m1)) :=
   fun x =>
-    if lt_dec x m' then x + m else (x - m').
+    if (lt_dec x m0) then x 
+    else if (lt_dec x (m0 + m1)) then (x + m2)
+    else (x - m1). 
+
+Definition ren_f_extrude m m' : ren (m + m') (m' + m) :=
+  ren_f_extrude_str 0 m m'.
 
 Definition scope_extrude m m' n n' Q :=
     let Q1 := @rename_rvar_proc n (n' + n) (fun x => n + x) Q in
-    let Q2 := @rename_fvar_proc (m + m') (m' + m) (ren_f_extrude m m') Q1 in
+    let Q2 := @rename_fvar_proc (0 + (m + m')) (0 + (m' + m)) (ren_f_extrude_str 0 m m') Q1 in
     Q2.
 
 
@@ -2318,56 +2335,534 @@ Proof.
       reflexivity.
 Qed.
 
+Lemma ctxt_app_assoc_zero :
+  forall (j k l : nat) 
+         (J : lctxt j)
+         (K : lctxt k),
+  (@ctxt_app _ (j + k) l (@ctxt_app _ j k J K) (zero l)) =
+  (@ctxt_app _ j (k + l)  J (@ctxt_app _ k l K (zero l))).
+Proof. 
+  intros. 
+  unfold ctxt_app. 
+  apply functional_extensionality. 
+  intros x.
+  destruct (lt_dec x (j + k)); try lia.
+  destruct (lt_dec x j); try lia.
+  destruct (lt_dec (x - j) k); try lia.
+  destruct (lt_dec x j); try lia.
+  destruct (lt_dec (x - j) k); try lia.
+  unfold zero; lia.
+Qed.
 
-Ltac lctxt_solve :=
-            repeat match goal with
-                   [ H : context[lt_dec ?R1 ?R2] |- _ ] => destruct (lt_dec R1 R2); try lia
-                 end;
-          repeat match goal with
-                   [ H : context[Nat.eq_dec ?R1 ?R1] |- _ ] => destruct (Nat.eq_dec R1 R1); try lia
-                 end;
-          repeat match goal with
-                   [ H : ?X = ?X |- _] => clear H
-                 end;
-          intuition; lia_goal; lia_destruct.
+Lemma ctxt_app_zero_zero :
+  forall (n m : nat),
+  (@ctxt_app _ n m (zero n) (zero m)) ≡[n + m]
+  (zero (n + m)).
+Proof.
+  intros.
+  unfold zero, ctxt_app.
+  intros x Hx. 
+  destruct (lt_dec x n); try lia.
+Qed.
+
+Lemma wf_app_zero :
+  (forall (m n : nat)
+      (G : lctxt m)
+      (D : lctxt n)
+      (t : term), 
+      wf_term m n G D t ->
+      forall (m' n' : nat),
+        wf_term (m + m') (n + n') 
+          (@ctxt_app _ m m' G (zero m'))
+          (@ctxt_app _ n n' D (zero n')) t)
+  /\ (forall (m n:nat)
+       (G : lctxt m)
+       (D : lctxt n)
+       (P : proc), 
+        wf_proc m n G D P ->
+        forall (m' n' : nat),
+          wf_proc (m + m') (n + n') 
+          (@ctxt_app _ m m' G (zero m'))
+          (@ctxt_app _ n n' D (zero n')) P)
+  /\ (forall (m n:nat)
+       (G : lctxt m)
+       (D : lctxt n)
+       (o : oper), 
+        wf_oper m n G D o ->
+        forall (m' n' : nat),
+          wf_oper (m + m') (n + n') 
+          (@ctxt_app _ m m' G (zero m'))
+          (@ctxt_app _ n n' D (zero n')) o).
+Proof.
+apply wf_tpo_ind; intros.
+- eapply wf_bag with (G':= G') (D' := D').
+  assumption. assumption.
+  assert ((@ctxt_app _ m' (m + m'0) G' (G ⊗ (zero m'0))) = 
+          (@ctxt_app _ (m' + m) m'0 (G' ⊗ G) (zero m'0))).
+  { symmetry; apply ctxt_app_assoc_zero. }
+  rewrite H0; clear H0.
+  assert ((@ctxt_app _ n' (n + n'0) D' (D ⊗ (zero n'0))) = 
+          (@ctxt_app _ (n' + n) n'0 (D' ⊗ D) (zero n'0))).
+  { symmetry; apply ctxt_app_assoc_zero. }
+  rewrite H0; clear H0.
+  specialize (H m'0 n'0).
+  replace (m' + (m + m'0)) with (m' + m + m'0) by lia.
+  replace (n' + (n + n'0)) with (n' + n + n'0) by lia.
+  assumption.
+- rewrite HD. 
+  assert ((@ctxt_app _ n n' (one n r ⨥ D') (zero n')) = 
+          ((@ctxt_app _ n n' (one n r) (zero n')) ⨥ (@ctxt_app _ n n' D' (zero n')))).
+  { assert ((zero n') = (zero n') ⨥ (zero n')) by (symmetry; apply sum_zero_l). 
+    rewrite H0 at 1.
+    symmetry; apply lctxt_sum_app_dist. }
+  rewrite H0; clear H0. 
+  eapply wf_def; eauto; try lia.
+  unfold ctxt_app, sum, one, zero, delta.
+  intros x Hx. destruction.
+- eapply wf_app; try lia. 
+  rewrite HG. unfold zero, ctxt_app.
+  intros x Hx. destruct (lt_dec x m); try lia.
+  rewrite HD. unfold one, zero, ctxt_app, delta.
+  intros x Hx. destruction.
+- rewrite HG, HD. 
+  assert ((@ctxt_app _ m m' (G1 ⨥ G2) (zero m')) = 
+          (@ctxt_app _ m m' G1 (zero m')) ⨥ (@ctxt_app _ m m' G2 (zero m'))).
+  symmetry; apply lctxt_sum_app_dist. rewrite H1; clear H1.
+  assert ((@ctxt_app _ n n' (D1 ⨥ D2) (zero n')) = 
+          (@ctxt_app _ n n' D1 (zero n')) ⨥ (@ctxt_app _ n n' D2 (zero n'))).
+  symmetry; apply lctxt_sum_app_dist. rewrite H1; clear H1.
+  eapply wf_par with (G1 := (@ctxt_app _ m m' G1 (zero m')))
+                     (G2 := (@ctxt_app _ m m' G2 (zero m'))) 
+                     (D1 := (@ctxt_app _ n n' D1 (zero n')))
+                     (D2 := (@ctxt_app _ n n' D2 (zero n'))).
+  specialize (H m' n'); try assumption.
+  specialize (H0 m' n'); try assumption.
+  apply refl_ctxt_eq. apply refl_ctxt_eq.
+- rewrite HG, HD. apply wf_emp. 
+  apply ctxt_app_zero_zero.
+  unfold zero, ctxt_app. intros x Hx. destruct (lt_dec x n); try lia.
+- rewrite HG, HD. apply wf_tup; try lia.
+  apply ctxt_app_zero_zero.
+  assert ((@ctxt_app _ n n' (one n r1 ⨥ one n r2) (zero n')) = 
+          ((@ctxt_app _ n n' (one n r1) (zero n')) ⨥ (@ctxt_app _ n n' (one n r2) (zero n'))))
+  by (symmetry; apply lctxt_sum_app_dist). rewrite H; clear H.
+  unfold zero, ctxt_app, one, sum, delta. 
+  intros x Hx. destruction.
+- rewrite HG, HD. apply wf_bng; try lia.
+  unfold one, ctxt_app, zero, delta.
+  intros x Hx. destruction.  
+  unfold zero, ctxt_app. 
+  intros x Hx. destruction.
+- rewrite HG, HD. apply wf_lam. 
+  apply ctxt_app_zero_zero.
+  apply ctxt_app_zero_zero.
+  specialize (H m' 0).
+  assert ((@ctxt_app _ 1 0 (1 [0 ↦ 1]) (zero 0) = 1 [0 ↦ 1])).
+  unfold delta, ctxt_app, zero. apply functional_extensionality.
+  intros x. destruction.
+  rewrite H0 in H; clear H0. simpl in H.
+  assert ((zero m ⊗ zero m') ≡[m + m'] (zero (m + m'))) by (apply ctxt_app_zero_zero).
+  rewrite H0 in H; clear H0; try assumption.
+Qed.
 
 
-(*
-P |
-r <- (r1, r2)
-r <- (r1', r2')
-*) 
+Lemma wf_rename_fvar :
+  (forall m n (G : lctxt m) (D : lctxt n) (t : term),
+    wf_term m n G D t ->
+    forall m0 m1 m2 (G0 : lctxt m0)
+    (HM : m = m0 + (m1 + m2))
+    (HG : G ≡[m] (@ctxt_app _ m0 (m1 + m2) G0 (zero (m1 + m2)))),
+    wf_term (m0 + (m2 + m1)) n (@ctxt_app _ m0 (m2 + m1) G0 (zero (m2 + m1))) D
+    (rename_fvar_term (ren_f_extrude_str m0 m1 m2) t)) /\
+  (forall m n (G : lctxt m) (D : lctxt n) (P : proc),
+    wf_proc m n G D P ->
+    forall m0 m1 m2 (G0 : lctxt m0)
+    (HM : m = m0 + (m1 + m2))
+    (HG : G ≡[m] (@ctxt_app _ m0 (m1 + m2) G0 (zero (m1 + m2)))),
+    wf_proc (m0 + (m2 + m1)) n (@ctxt_app _ m0 (m2 + m1) G0 (zero (m2 + m1))) D
+    (rename_fvar_proc (ren_f_extrude_str m0 m1 m2) P)) /\ 
+  (forall m n (G : lctxt m) (D : lctxt n) (o : oper),
+    wf_oper m n G D o ->
+    forall m0 m1 m2 (G0 : lctxt m0)
+    (HM : m = m0 + m1 + m2)
+    (HG : G ≡[m] (@ctxt_app _ m0 (m1 + m2) G0 (zero (m1 + m2)))),
+    wf_oper (m0 + (m2 + m1)) n (@ctxt_app _ m0 (m2 + m1) G0 (zero (m2 + m1))) D
+    (rename_fvar_oper (ren_f_extrude_str m0 m1 m2) o)).
+Proof.
+apply wf_tpo_ind; intros.
+- eapply wf_bag with (G' := G') (D' := D'); try assumption.
+  specialize (H (m' + m0) m1 m2 (@ctxt_app _ m' m0 G' G0)).
+  assert (m' + m = m' + m0 + (m1 + m2)) by lia. 
+  apply H in H0.
+  2 : { unfold ctxt_app, zero, ctxt_eq.
+        intros x Hx; destruction. 
+        all : (rewrite HG; unfold ctxt_app, zero; destruction; try lia).  }
+  assert ((@ctxt_app _ (m' + m0) (m2 + m1) (G' ⊗ G0) (zero (m2 + m1))) =
+          (@ctxt_app _ m' (m0 + (m2 + m1)) G' (G0 ⊗ (zero (m2 + m1))))).
+  { apply ctxt_app_assoc_zero. }
+  rewrite H1 in H0; clear H1. 
+  unfold rename_fvar_proc, ren_f_extrude_str in H0.
+  unfold ren_shift, ren_id, ctxt_app, ren_f_extrude_str.
+  assert ((fun x : var => if lt_dec x (m' + m0)
+            then x
+            else if lt_dec x (m' + m0 + m1) then x + m2 else x - m1) = 
+          (fun x : var =>
+            if lt_dec x m'
+            then if lt_dec x m' then x else m'
+            else m' +
+              (if lt_dec (x - m') m0 then x - m'
+              else if lt_dec (x - m') (m0 + m1) then x - m' + m2 else x - m' - m1))).
+  { apply functional_extensionality. intros x. destruction. }
+  rewrite H1 in H0; clear H1.
+  replace (m' + (m0 + (m2 + m1))) with (m' + m0 + (m2 + m1)) by lia.
+  replace (m' + (m0 + (m1 + m2))) with (m' + m0 + (m1 + m2)) by lia.
+  assumption.
+- eapply wf_def with (D' := D'); try lia; try assumption.
+  specialize (H m0 m1 m2 G0).
+  assert (m = m0 + m1 + m2) by lia.
+  apply H in H0.
+  2 : { assumption. }
+  assumption.
+- eapply wf_app; try lia; try assumption.
+  unfold ren_f_extrude_str. 
+  destruct (lt_dec f m0); try lia.
+  destruct (lt_dec f (m0 + m1)); try lia.
+  unfold ctxt_app, zero, ctxt_eq; intros x Hx.
+  destruct (lt_dec x m0); try lia. 
+  rewrite HG in HG0; symmetry in HG0. 
+  unfold ctxt_app, zero, ctxt_eq in HG0.
+  specialize (HG0 x); assert (x < m) by lia; apply HG0 in H.
+  destruct (lt_dec x m0) in H; try lia.
+- assert (exists (G1a G2a : lctxt m0) (G1b G2b : lctxt (m1 + m2)),
+    (G1 ≡[m0 + (m1 + m2)] G1a ⊗ G1b) /\ (G2 ≡[m0 + (m1 + m2)] G2a ⊗ G2b) 
+    /\ (G1a ⨥ G2a) ≡[m0] G0 /\ (G1b ⨥ G2b) ≡[m1 + m2] (zero (m1 + m2))).
+  { symmetry in HG0. rewrite HG in HG0. 
+    rewrite HM in HG0.
+    apply sum_app_inv_ctxt in HG0. 
+    assumption. }
+  edestruct H1 as (G1a & G2a & G1b & G2b & HG1 & HG2 & HGa & HGb); clear H1.
+  eapply wf_par with (G1 := G1) (G2 := G2) (D1 := D1) (D2 := D2); try assumption.
+  3 : { unfold ctxt_app, zero, ctxt_eq, sum. intros x Hx.
+        destruct (lt_dec x m0); try lia. 
+        unfold ctxt_eq, ctxt_app, zero in HG0.
+        specialize (HG0 x); assert (x < m) by lia; apply HG0 in H1.
+        destruct (lt_dec x m0) in H1; try lia. 
+        symmetry in H1; rewrite H1; unfold ctxt_eq in HG.
+        specialize (HG x); assert (x < m) by lia; apply HG in H2; assumption.
+        unfold ctxt_eq, sum in HG.
+        unfold ctxt_eq, ctxt_app, zero in HG0. 
+        specialize (HG x); specialize (HG0 x).
+        assert (x < m) by lia; apply HG in H1.
+        assert (x < m) by lia; apply HG0 in H2. 
+        destruct (lt_dec x m0) in H2; try lia. }
+  assert (G1b ≡[m1 + m2] (zero (m1 + m2)) /\ G2b ≡[m1 + m2] (zero (m1 + m2))).
+  { split. all : (unfold ctxt_eq, zero; intros x Hx; 
+    unfold sum, ctxt_eq, zero in HGb; specialize (HGb x); apply HGb in Hx; try lia). }
+  destruct H1 as (H1 & H2).
+  1 : { specialize (H m0 m1 m2 G1a).
+        apply H in HM. 
+        2 : { unfold ctxt_eq, ctxt_app, zero. intros x Hx.
+              destruct (lt_dec x m0).
+              all : (unfold ctxt_eq, ctxt_app, zero in HG1; 
+              specialize (HG1 x);
+              assert (x < m0 + (m1 + m2)) by lia; apply HG1 in H3;
+              destruct (lt_dec x m0) in H3; try lia).
+              rewrite H1 in H3. unfold zero in H3; try lia. lia. }
+        rewrite H1 in HG1; clear H1. 
+        replace (m1 + m2) with (m2 + m1) in HG1 by lia.
+        symmetry in HG1; rewrite HG1 in HM; clear HG1; assumption. }
+  assert (G1b ≡[m1 + m2] (zero (m1 + m2)) /\ G2b ≡[m1 + m2] (zero (m1 + m2))).
+  { split. all : (unfold ctxt_eq, zero; intros x Hx; 
+  unfold sum, ctxt_eq, zero in HGb; specialize (HGb x); apply HGb in Hx; try lia). }
+  destruct H1 as (H1 & H2).
+  1 : { specialize (H0 m0 m1 m2 G2a).
+        apply H0 in HM. 
+        2 : { unfold ctxt_eq, ctxt_app, zero. intros x Hx.
+              destruct (lt_dec x m0).
+              all : (unfold ctxt_eq, ctxt_app, zero in HG2; 
+              specialize (HG2 x);
+              assert (x < m0 + (m1 + m2)) by lia; apply HG2 in H3;
+              destruct (lt_dec x m0) in H3; try lia).
+              rewrite H2 in H3. unfold zero in H3; try lia. lia. }
+        rewrite H2 in HG2; clear H2. 
+        replace (m1 + m2) with (m2 + m1) in HG2 by lia.
+        symmetry in HG2; rewrite HG2 in HM; clear HG2; assumption. }
+- eapply wf_emp; try assumption. replace (m2 + m1) with (m1 + m2) by lia.
+  unfold ctxt_app, zero, ctxt_eq. intros x Hx. 
+  destruct (lt_dec x m0); try lia. 
+  unfold ctxt_eq, ctxt_app, zero in HG0; specialize (HG0 x). 
+  assert (x < m) by lia; apply HG0 in H. 
+  destruct (lt_dec x m0) in H; try lia. 
+  rewrite HG in H; unfold zero in H; try lia.
+- eapply wf_tup; try assumption. 
+  unfold ctxt_app, zero, ctxt_eq. intros x Hx.
+  destruct (lt_dec x m0); try lia. 
+  unfold ctxt_eq, ctxt_app, zero in HG0.
+  specialize (HG0 x); assert (x < m) by lia; apply HG0 in H.
+  destruct (lt_dec x m0) in H; try lia. 
+  rewrite HG in H; unfold zero in H; try lia.
+- eapply wf_bng; try assumption. 
+  unfold ren_f_extrude_str. 
+  destruct (lt_dec f m0); try lia.
+  destruct (lt_dec f (m0 + m1)); try lia. 
+  rewrite HM in HG0.
+  replace (m0 + m1 + m2) with (m0 + (m1 + m2)) in HG0 by lia.
+  replace (m2 + m1) with (m1 +m2) by lia. 
+  symmetry in HG0; rewrite HG0.
+  unfold ctxt_eq, one, ren_f_extrude_str.
+  intros x Hx; destruction.
+  + rewrite HG; try lia.
+    unfold one; replace (m0 + m1 + m2) with (m0 + (m1 + m2)) in HM by lia.
+    rewrite HM; reflexivity.
+  + assert (G f = 1).
+    { rewrite HG; unfold one.
+      apply delta_id; try lia. lia. }
+    contradict H.
+    assert (G f = 0). 
+    { symmetry in HG0; rewrite HG0; try lia.
+      unfold ctxt_app, zero. destruct (lt_dec f m0).
+      all : (try lia). }
+    rewrite H; lia.
+  + assert (G f = 1).
+    { rewrite HG; unfold one.
+      apply delta_id; try lia. lia. }
+    contradict H.
+    assert (G f = 0). 
+    { symmetry in HG0; rewrite HG0; try lia.
+      unfold ctxt_app, zero. destruct (lt_dec f m0).
+      all : (try lia). }
+    rewrite H; lia.
+- eapply wf_lam; try assumption.
+  replace (m0 + m1 + m2) with (m0 + (m2 + m1)) in * by lia.
+  rewrite HM in HG0. rewrite HM in HG. rewrite HG in HG0.
+  symmetry in HG0; assumption.
+  specialize (H m0 m1 m2 G0). 
+  replace (m0 + m1 + m2) with (m0 + (m1 + m2)) in HM by lia.
+  assert (m = m0 + (m1 + m2)) by assumption.
+  apply H in HM.
+  2 : { rewrite HG in HG0; assumption. }
+  assert (zero (m0 + (m2 + m1)) ≡[m0 + (m2 + m1)] (G0 ⊗ zero (m2 + m1))).
+  { unfold zero, ctxt_eq, ctxt_app. intros x Hx.
+    destruct (lt_dec x m0); try lia.
+    unfold ctxt_eq, ctxt_app, zero in HG0; specialize (HG0 x).
+    assert (x < m) by lia; apply HG0 in H1.
+    destruct (lt_dec x m0) in H1; try lia.
+    rewrite HG in H1; unfold zero in H1; try lia. }
+    rewrite H1. assumption.
+Qed.
 
-Definition cut_renaming n (r1 r2 r1' r2':nat) : ren n n :=
-  if Nat.eq_dec r1 r1' then
-    if Nat.eq_dec r2 r2' then
-      ren_id n
-    else
-      rename_var r2 r2'
-  else
-    if Nat.eq_dec r2 r2' then
-      rename_var r1 r1'
-    else
-      if Nat.eq_dec r1 r2 then
-        if Nat.eq_dec r1' r2' then
-          ren_id n
-        else
-          rename_var r1' r2'
-      else
-        if Nat.eq_dec r1' r2' then
-          rename_var r1 r2
-        else
-          if Nat.eq_dec r1 r2' then
-            if Nat.eq_dec r1' r2 then
-              ren_id n
-            else
-              rename_var r1' r2
-          else
-            if Nat.eq_dec r1' r2 then
-              rename_var r1 r2'
-            else
-              @ren_compose n n nat (rename_var r1 r1') (rename_var r2 r2').
-    
+
+(* Can definitely make this more concise by unfolding everything at the outset.
+  But I am finding it conceptually easier to work with 'folded' defs for now. *)
+Lemma wf_scope_extrude :
+  forall m m' n n' (G : lctxt m') (D : lctxt n') Q,
+   wf_proc (m' + m) n' (G ⊗ zero m) D Q ->
+   wf_proc (m + m') (n + n') (zero m ⊗ G) (zero n ⊗ D) (scope_extrude m m' n n' Q).
+Proof.
+intros.
+inversion H; existT_eq; subst.
+inversion WFO; existT_eq; subst.
+assert (G  ≡[m'] (zero m')). 
+    { unfold ctxt_eq, zero. intros x Hx. 
+      unfold ctxt_eq, ctxt_app, zero, ctxt_eq in HG.
+      specialize (HG x).
+      assert (x < m' + m) by lia. apply HG in H0.
+      destruct (lt_dec x m') in H0; try lia. }
+- unfold scope_extrude.
+  unfold ren_f_extrude, ren_f_extrude_str.
+  unfold rename_rvar_proc.
+  unfold rename_rvar_oper.
+  eapply wf_def with (D' := (@ctxt_app _ n' n D' (zero n))); try lia.
+  + unfold zero, ctxt_app, one, delta, sum. 
+    intros x Hx.
+    destruction.
+    all : (try rewrite HD; try rewrite HD0; 
+           try unfold zero, one, delta, sum; 
+           try destruction;
+           try rewrite HD0;
+           try unfold zero;
+           try lia). 
+  + apply wf_emp. 
+    rewrite H0.
+    unfold zero, ctxt_app, ctxt_eq. 
+    intros x Hx.
+    destruct (lt_dec x m); try lia.
+    unfold ctxt_app, zero. intros x Hx.
+    destruct (lt_dec x n'); try lia.
+    rewrite HD0; unfold zero; try lia. 
+- eapply wf_def with (D' := (@ctxt_app _ n n' (zero n) D')).
+  try lia.
+  rewrite HD.
+  unfold zero, ctxt_app, one, delta, sum. 
+  intros x Hx. destruction.
+  apply wf_tup; try lia.
+  assert (G  ≡[m'] (zero m')). 
+  { unfold ctxt_eq, zero. intros x Hx. 
+    unfold ctxt_eq, ctxt_app, zero, ctxt_eq in HG.
+    specialize (HG x).
+    assert (x < m' + m) by lia. apply HG in H0.
+    destruct (lt_dec x m') in H0; try lia. }
+  rewrite H0.
+  unfold zero, ctxt_app, ctxt_eq. 
+  intros x Hx.
+  destruct (lt_dec x m); try lia.
+  unfold ctxt_app, zero, one, delta, sum.
+  intros x Hx. destruction.
+  all : (rewrite HD0; unfold one, sum, delta; destruction; try lia).
+- assert ((@ctxt_app _ m m' (zero m) G) ≡[m + m'] (one (m + m') (m + f))).
+  { assert (G ≡[m'] (one m' f)).
+    { unfold ctxt_app, zero, one, delta in HG.
+      unfold one, delta. intros y Hy.
+      specialize (HG y). assert (y < m' + m) by lia. apply HG in H0.
+      destruct (lt_dec y m') in H0. 
+      destruct (lt_dec f (m' + m)) in H0.
+      destruct (Nat.eq_dec f y) in H0. 
+      all : (destruction; try lia). }
+    unfold zero, ctxt_app, one, delta, ctxt_eq.
+    intros x Hx.
+    destruction.
+    all : (rewrite H0; unfold one, delta; destruction; try lia).
+  }
+  unfold scope_extrude.
+  unfold ren_f_extrude, ren_f_extrude_str.
+  unfold rename_rvar_proc.
+  unfold rename_rvar_oper.
+  eapply wf_def with (D' := (@ctxt_app _ n n' (zero n) D')); try lia.
+  unfold zero, ctxt_app, one, delta, sum. 
+  intros x Hx; destruction.
+  1, 2 : (rewrite HD; try lia; unfold one, delta, sum; destruction). 
+  (* Uh-oh! *)
+  apply wf_bng.
+  destruction; try lia.
+  2 : { unfold zero, ctxt_app. 
+      intros x Hx. destruct (lt_dec x n); try lia.
+      rewrite HD0; unfold zero; try lia. }
+
+  destruct (lt_dec f 0); try lia.
+  destruct (lt_dec f (0 + m)); try lia.
+  
+  
+  assert (((@ctxt_app _ m' m G (zero m)) f) = 0).
+  { unfold zero, ctxt_app. destruct (lt_dec f m'); try lia. }
+  assert (((one (m'+ m) f) f) = 1). apply delta_id; assumption.
+  unfold ctxt_eq in HG. specialize (HG f). apply HG in HF. lia.
+  unfold zero, ctxt_app. intros x Hx.
+  destruct (lt_dec x n); try lia. 
+  rewrite HD0; try lia. unfold zero; try lia.
+
+  destruct (lt_dec f m'); try lia.
+  destruct (lt_dec f m').
+  unfold zero, ctxt_app, one, delta. intros x Hx.
+  unfold zero, ctxt_app, one, delta in H0.
+  specialize (H0 x). apply H0 in Hx; clear H0.
+  replace (m + f) with (f + m) in Hx by lia; assumption.
+  assert (((@ctxt_app _ m' m G (zero m)) f) = 0).
+  { unfold zero, ctxt_app. destruct (lt_dec f m'); try lia. }
+  assert (((one (m'+ m) f) f) = 1). apply delta_id; assumption.
+  unfold ctxt_eq in HG. specialize (HG f). apply HG in HF. lia.
+  unfold zero, ctxt_app. intros x Hx.
+  destruct (lt_dec x n); try lia. 
+  rewrite HD0; try lia. unfold zero; try lia.
+- eapply wf_def with (D' := (@ctxt_app _ n n' (zero n) D')); try lia.
+  unfold zero, ctxt_app, one, delta, sum.
+  intros x Hx. destruction.
+  rewrite HD.
+  unfold one, delta, sum. destruction. try lia.
+  simpl. rewrite HD; unfold one, delta, sum.
+  destruction. lia.
+  apply wf_lam.
+  assert (G  ≡[m'] (zero m')). 
+  { unfold ctxt_eq, zero. intros x Hx. 
+    unfold ctxt_eq, ctxt_app, zero, ctxt_eq in HG.
+    specialize (HG x).
+    assert (x < m' + m) by lia. apply HG in H0.
+    destruct (lt_dec x m') in H0; try lia. }
+  rewrite H0. unfold zero, ctxt_app; intros x Hx; destruction; try lia.
+  unfold zero, ctxt_app; intros x Hx; destruction; rewrite HD0; 
+  unfold zero; try lia.
+  + eapply wf_rename_fvar; assumption.
+- apply wf_app; try lia.
+  unfold ren_f_extrude; destruct (lt_dec f m'); try lia.
+  assert (G  ≡[m'] (zero m')). 
+  { unfold ctxt_eq, zero. intros x Hx. 
+    unfold ctxt_eq, ctxt_app, zero, ctxt_eq in HG.
+    specialize (HG x).
+    assert (x < m' + m) by lia. apply HG in H0.
+    destruct (lt_dec x m') in H0; try lia. }
+  rewrite H0. unfold zero, ctxt_app; intros x Hx; destruction; try lia.
+  unfold zero, ctxt_app, one, delta. 
+  intros x Hx; destruction.
+  all : (rewrite HD; unfold one, delta; destruction; try lia).
+- unfold scope_extrude.
+  unfold ren_f_extrude.
+  unfold rename_rvar_proc.
+  unfold rename_rvar_oper.
+  (* G1 and G2 are wrong here *) 
+  eapply wf_par with (G1 := (@ctxt_app _ m m' (zero m) G1))
+                     (G2 := (@ctxt_app _ m m' (zero m) G2))
+                     (D1 := (@ctxt_app _ n n' (zero n) D1))
+                     (D2 := (@ctxt_app _ n n' (zero n) D2)).
+  (* see ctxt_app inversion lemmas *)
+Admitted.
+
+
+
+Lemma wf_prim_step_app :
+  forall m m' m'' n n' n'' r r' f P Q (G : lctxt m),
+    wf_term m n G (zero n) (bag m' n'
+                            (par P
+                                (par (def r (lam (bag m'' n'' Q)))
+                                     (par (def r (bng f))
+                                          (app f r'))))) ->
+    wf_term m n G (zero n) (bag (m' + m'') (n' + n'')
+                            (par P
+                                (par (def r (lam (bag m'' n'' Q)))
+                                     (par (def r (bng f))
+                                          (@rename_rvar_proc m'' (m' + m'') 
+                                            (rename_var (n'+ n'') r') 
+                                            (scope_extrude m' m'' n' n'' Q)))))).
+Proof.
+  intros.
+  inversion H; existT_eq; subst; clear H.
+  inversion WFP; existT_eq; subst; clear WFP.
+  inversion WFP2; existT_eq; subst; clear WFP2.
+  inversion WFP0; existT_eq; subst; clear WFP0.
+  inversion WFP3; existT_eq; subst; clear WFP3.
+  inversion WFO; existT_eq; subst; clear WFO.
+  inversion WFP0; existT_eq; subst; clear WFP0.
+  inversion WFP2; existT_eq; subst; clear WFP2.
+  inversion WFT; existT_eq; subst; clear WFT.
+
+  rewrite HG2 in HG0; clear HG2.
+  rewrite sum_zero_l in HG0.
+  rewrite HD3 in HD1; clear HD3.
+  rewrite sum_zero_r in HD1.
+  rewrite HG3 in HG1; clear HG3.
+  rewrite sum_zero_r in HG1.
+  rewrite HG1 in HG0; clear HG1.
+  rewrite HG0 in HG; clear HG0.
+  rewrite HD4 in HD2; clear HD4.
+  rewrite HD5 in HD2; clear HD5. 
+  rewrite HD2 in HD0; clear HD2.
+  rewrite HD1 in HD0; clear HD1.
+  rewrite HD0 in HD; clear HD0.
+
+  unfold one in HD.
+
+  (* --------------------------------------------------------------------------------------------------- *)
+  eapply wf_bag with (G := G) (D := (zero n))  (G' := G')(D' := D').
+  
+  3 : { 
+    eapply wf_par with (G1 := G1) (G2 := G4) (D1 := D1) 
+                       (D2 := ((n' + n) [r ↦ 1] ⨥ (((n' + n) [r ↦ 1] ⨥ D'1) ⨥ (n' + n) [r' ↦ 1]))).
+   
+  apply wf_lam. 
+
+  }
+
+Admitted. 
+
+
 Lemma wf_prim_step_tup :
   forall m m' n n' r r1 r2 r1' r2' P (G : lctxt m),
     wf_term m n G (zero n) (bag m' n' (par P (par (def r (tup r1 r2)) (def r (tup r1' r2'))))) ->
