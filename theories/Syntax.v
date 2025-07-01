@@ -2465,29 +2465,7 @@ apply wf_tpo_ind; intros.
   rewrite H0 in H; clear H0; try assumption.
 Qed.
 
-(*
-(forall m n (G : lctxt m) (D : lctxt n) (t : term),
-    wf_term m n G D t ->
-    forall m0 m1 m2 (G0 : lctxt m0)
-    (HM : m = m1 + m2)
-    (HG : G ≡[m] (G0 ⊗ (zero (m1 + m2)))),
-    wf_term (m2 + m1) n (G0 ⊗ zero (m2 + m1)) D
-    (rename_fvar_term (ren_f_extrude_str m0 m1 m2) t)) /\
-  (forall m n (G : lctxt m) (D : lctxt n) (P : proc),
-    wf_proc m n G D P ->
-    forall m0 m1 m2 (G0 : lctxt m0)
-    (HM : m = m1 + m2)
-    (HG : G ≡[m] (G0 ⊗ (zero (m1 + m2)))),
-    wf_proc (m2 + m1) n (zero (m2 + m1)) D
-    (rename_fvar_proc (ren_f_extrude_str m0 m1 m2) P)) /\ 
-  (forall m n (G : lctxt m) (D : lctxt n) (o : oper),
-    wf_oper m n G D o ->
-    forall m0 m1 m2 (G0 : lctxt m0)
-    (HM : m = m1 + m2)
-    (HG : G ≡[m] (G0 ⊗ (zero (m1 + m2)))),
-    wf_oper (m2 + m1) n (zero (m2 + m1)) D
-    (rename_fvar_oper (ren_f_extrude_str m0 m1 m2) o)).
-*)
+
 Lemma wf_rename_fvar :
   (forall m n (G : lctxt m) (D : lctxt n) (t : term),
     wf_term m n G D t ->
@@ -2691,7 +2669,7 @@ assert (G  ≡[m'] (zero m')).
       assert (x < m' + m) by lia. apply HG in H0.
       destruct (lt_dec x m') in H0; try lia. }
 - unfold scope_extrude.
-  unfold ren_f_extrude.
+  unfold ren_f_extrude, ren_f_extrude_str.
   unfold rename_rvar_proc.
   unfold rename_rvar_oper.
   eapply wf_def with (D' := (@ctxt_app _ n' n D' (zero n))); try lia.
@@ -2710,9 +2688,8 @@ assert (G  ≡[m'] (zero m')).
     intros x Hx.
     destruct (lt_dec x m); try lia.
     unfold ctxt_app, zero. intros x Hx.
-    destruct (lt_dec x n').
-    rewrite HD0; try lia.
-    unfold zero; try lia. lia.
+    destruct (lt_dec x n'); try lia.
+    rewrite HD0; unfold zero; try lia. 
 - eapply wf_def with (D' := (@ctxt_app _ n n' (zero n) D')).
   try lia.
   rewrite HD.
@@ -2747,14 +2724,31 @@ assert (G  ≡[m'] (zero m')).
     all : (rewrite H0; unfold one, delta; destruction; try lia).
   }
   unfold scope_extrude.
-  unfold ren_f_extrude.
+  unfold ren_f_extrude, ren_f_extrude_str.
   unfold rename_rvar_proc.
   unfold rename_rvar_oper.
   eapply wf_def with (D' := (@ctxt_app _ n n' (zero n) D')); try lia.
   unfold zero, ctxt_app, one, delta, sum. 
   intros x Hx; destruction.
-  1, 2 : (rewrite HD; try lia; unfold one, delta, sum; destruction).
+  1, 2 : (rewrite HD; try lia; unfold one, delta, sum; destruction). 
   apply wf_bng.
+  destruction; try lia.
+  2 : { unfold zero, ctxt_app. 
+      intros x Hx. destruct (lt_dec x n); try lia.
+      rewrite HD0; unfold zero; try lia. }
+
+  destruct (lt_dec f 0); try lia.
+  destruct (lt_dec f (0 + m)); try lia.
+  
+  
+  assert (((@ctxt_app _ m' m G (zero m)) f) = 0).
+  { unfold zero, ctxt_app. destruct (lt_dec f m'); try lia. }
+  assert (((one (m'+ m) f) f) = 1). apply delta_id; assumption.
+  unfold ctxt_eq in HG. specialize (HG f). apply HG in HF. lia.
+  unfold zero, ctxt_app. intros x Hx.
+  destruct (lt_dec x n); try lia. 
+  rewrite HD0; try lia. unfold zero; try lia.
+
   destruct (lt_dec f m'); try lia.
   destruct (lt_dec f m').
   unfold zero, ctxt_app, one, delta. intros x Hx.
@@ -2785,7 +2779,7 @@ assert (G  ≡[m'] (zero m')).
   rewrite H0. unfold zero, ctxt_app; intros x Hx; destruction; try lia.
   unfold zero, ctxt_app; intros x Hx; destruction; rewrite HD0; 
   unfold zero; try lia.
-  + apply wf_rename_fvar_term; assumption.
+  + eapply wf_rename_fvar; assumption.
 - apply wf_app; try lia.
   unfold ren_f_extrude; destruct (lt_dec f m'); try lia.
   assert (G  ≡[m'] (zero m')). 
