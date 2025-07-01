@@ -1857,7 +1857,7 @@ Definition ren_f_extrude m m' : ren (m + m') (m' + m) :=
 
 Definition scope_extrude m m' n n' Q :=
     let Q1 := @rename_rvar_proc n (n' + n) (fun x => n + x) Q in
-    let Q2 := @rename_fvar_proc (m + m') (m' + m) (ren_f_extrude m m') Q1 in
+    let Q2 := @rename_fvar_proc (0 + (m + m')) (0 + (m' + m)) (ren_f_extrude_str 0 m m') Q1 in
     Q2.
 
 
@@ -2731,6 +2731,7 @@ assert (G  ≡[m'] (zero m')).
   unfold zero, ctxt_app, one, delta, sum. 
   intros x Hx; destruction.
   1, 2 : (rewrite HD; try lia; unfold one, delta, sum; destruction). 
+  (* Uh-oh! *)
   apply wf_bng.
   destruction; try lia.
   2 : { unfold zero, ctxt_app. 
