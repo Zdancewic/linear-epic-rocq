@@ -2503,15 +2503,25 @@ Proof.
 Qed.
 
 Lemma ctxt_one_eq_app_zero :
-  forall n m x (D : lctxt m),
-    one (n + m) x ≡[n + m] (one n x) ⊗ D ->
+  forall n m x (D : lctxt m)
+    (Hx : x < n)
+    (H : one (n + m) x ≡[n + m] (one n x) ⊗ D),
     D ≡[m] zero m.
 Proof. 
-  intros. 
-  unfold zero, ctxt_eq. intros y Hy. 
-  unfold one, delta, ctxt_eq, ctxt_app in H.
-  specialize (H y). 
-  assert (y < n + m) by lia; apply H in H0.
+  intros.
+  assert (one (n + m) x ≡[n + m] (one n x) ⊗ (zero m)).
+  { unfold ctxt_eq, ctxt_app, one, zero, delta in *.
+    intros y Hy.
+    specialize (H y Hy).
+    destruction; try lia. }
+  symmetry in H; rewrite H0 in H; clear H0. 
+  unfold ctxt_eq, zero.
+  intros y Hy. 
+  unfold one, delta, ctxt_app, ctxt_eq, zero in H.
+  specialize (H y).
+  assert (y < n + m) by lia. 
+  apply H in H0. 
+  lia_destruct. 
 Admitted. 
 
 Lemma scope_extrude_one :
