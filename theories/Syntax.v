@@ -2524,6 +2524,24 @@ Proof.
   lia_destruct. 
 Admitted. 
 
+Lemma ctxt_one_eq_app_zero_inv :
+  forall n m x (D : lctxt n)
+    (Hx : ~ x < n)
+    (Hx' : x < n + m)
+    (H : one (n + m) x ≡[n + m] (zero n) ⊗ D ),
+    D ≡[m] (one m (x - n)).
+Proof. 
+  intros. 
+  unfold ctxt_eq, ctxt_app, one, zero, delta in *.
+  intros y Hy. 
+  specialize (H y). 
+  assert (y < n + m) by lia; apply H in H0.
+  destruct (lt_dec (x - n) m); try lia.
+  destruct (Nat.eq_dec (x - n) y); try lia.
+  lia_destruct.
+Admitted. 
+
+
 Lemma scope_extrude_one :
   forall m0 m1 m2 (G0 : lctxt m0) (G1 : lctxt m1) (G2 : lctxt m2) (f : nat)
     (HF : f < m0 + (m1 + m2))
@@ -2532,6 +2550,7 @@ Lemma scope_extrude_one :
 Proof.
   intros. 
   unfold ren_f_extrude_str; destruction.
+
   - assert (G0 ≡[m0] (one m0 f)).
     { unfold zero, one, delta, ctxt_eq, ctxt_app in *.
       intros x HX.
@@ -2540,6 +2559,23 @@ Proof.
       destruct (lt_dec f m0); try lia.
       destruct (Nat.eq_dec f x); try lia.
       try lia_destruct. lia_destruct. }
+    rewrite H in *; clear H.
+    assert (G1 ⊗ G2 ≡[m1 + m2] (zero (m1 + m2))).
+    { apply ctxt_one_eq_app_zero with (n := m0) (x := f); try assumption. }
+    symmetry in H.
+    assert (H' : zero (m1 + m2) ≡[m1 + m2] G1 ⊗ G2) by (apply H).
+    apply ctxt_zero_app_inv_r in H'.
+    apply ctxt_zero_app_inv_l in H.
+    assert ((@ctxt_app _ m2 m1 G2 G1) ≡[m2 + m1] (zero (m2 + m1))).
+    { unfold zero, ctxt_app, ctxt_eq.
+      intros x Hx. 
+      destruct (lt_dec x m2); try lia.
+      symmetry in H'; rewrite H'; unfold zero; lia.
+      symmetry in H; rewrite H; unfold zero; lia. }
+    rewrite H0. unfold one, delta, ctxt_eq, ctxt_app, zero.
+    intros x Hx. destruction.
+
+      (* taking ctxt_one_eq_app_zero as given for now
     assert ((@ctxt_app _ m1 m2 G1 G2) ≡[m1 + m2] (zero (m1 + m2))).
     { rewrite H in HG.
       assert ((one (m0 + (m1 + m2)) f) =
@@ -2572,8 +2608,53 @@ Proof.
     rewrite H0.
     rewrite ctxt_app_zero_zero.
     rewrite HG.
-    reflexivity. 
-Admitted.  
+    reflexivity. *) 
+
+  - assert (G0 ≡[m0] (zero m0)). 
+    { unfold zero, one, delta, ctxt_eq, ctxt_app in *.
+      intros x Hx.
+      specialize (HG x).
+      assert (x < m0 + (m1 + m2)) by lia; apply HG in H.
+      destruct (lt_dec f m0); try lia.
+      destruct (Nat.eq_dec f x); try lia.
+      try lia_destruct. }
+    rewrite H in *; clear H.
+    apply ctxt_one_eq_app_zero_inv with (n := m0) (x := f) in HG; try lia.
+    assert (G1 ≡[m1] (one m1 (f - m0))).
+    { unfold ctxt_eq, one, delta, ctxt_app in *. 
+      intros x Hx.
+      specialize (HG x).
+      assert (x < (m1 + m2)) by lia; apply HG in H.
+      destruction.
+      lia_destruct. lia_destruct. }
+    rewrite H in HG.
+    symmetry in HG; apply ctxt_one_eq_app_zero in HG; try lia.
+    rewrite HG; rewrite H.
+    unfold one, delta, ctxt_eq, zero, ctxt_app.
+    intros x Hx; destruction.
+
+  - assert (G0 ≡[m0] (zero m0)). 
+    { unfold zero, one, delta, ctxt_eq, ctxt_app in *.
+      intros x Hx.
+      specialize (HG x).
+      assert (x < m0 + (m1 + m2)) by lia; apply HG in H.
+      destruct (lt_dec f m0); try lia.
+      destruct (Nat.eq_dec f x); try lia.
+      try lia_destruct. }
+    rewrite H in *; clear H.
+    apply ctxt_one_eq_app_zero_inv with (n := m0) (x := f) in HG; try lia.
+    assert (G1 ≡[m1] (zero m1)).
+    { unfold ctxt_eq, one, delta, ctxt_app in *. 
+      intros x Hx.
+      specialize (HG x).
+      assert (x < (m1 + m2)) by lia; apply HG in H.
+      lia_destruct; unfold zero; assumption. }
+    rewrite H in HG.
+    symmetry in HG; apply ctxt_one_eq_app_zero_inv in HG; try lia.
+    rewrite HG; rewrite H.
+    unfold one, delta, ctxt_eq, zero, ctxt_app.
+    intros x Hx; destruction.
+Qed. 
     
 
 Lemma wf_rename_fvar_extrude_wpo :
