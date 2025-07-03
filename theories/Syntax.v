@@ -2982,8 +2982,7 @@ Proof.
   apply wf_rename_fvar.
 Qed.
 
-(* Can definitely make this more concise by unfolding everything at the outset.
-  But I am finding it conceptually easier to work with 'folded' defs for now. *)
+
 Lemma wf_scope_extrude :
   forall m m' n n' (G : lctxt m') (D : lctxt n') Q,
    wf_proc (m' + m) n' (G ⊗ zero m) D Q ->
@@ -3124,9 +3123,13 @@ assert (G  ≡[m'] (zero m')).
   intros x Hx; destruction.
   all : (rewrite HD; unfold one, delta; destruction; try lia).
 - 
+  (* 
   unfold ren_f_extrude_str.
   unfold rename_rvar_proc.
   unfold rename_rvar_oper.
+  eapply wf_par.
+
+  eapply wf_rename_fvar_proc. *) 
 
   apply sum_app_inv_ctxt in HG.
   destruct HG as (Da1 & Da2 & Db1 & Db2 & HG1 & HG2 & HDa & HDb).
@@ -3134,8 +3137,7 @@ assert (G  ≡[m'] (zero m')).
           ((@ctxt_app _ m m' (zero m) Da1) ⨥ (@ctxt_app _ m m' (zero m) Da2))).
   { symmetry in HDa. rewrite HDa.
     unfold zero, ctxt_app, sum, ctxt_eq. 
-    intros x Hx.
-    destruction; try lia. }
+    intros x Hx. destruction; try lia. }
    assert ((@ctxt_app _ n n' (zero n) D) ≡[n + n'] 
           ((@ctxt_app _ n n' (zero n) D1) ⨥ (@ctxt_app _ n n' (zero n) D2))).
   { rewrite HD.
@@ -3143,9 +3145,17 @@ assert (G  ≡[m'] (zero m')).
     intros x Hx.
     destruction; try lia. }
   rewrite H0; clear H0. rewrite H1; clear H1.
-      
- 
-  (* see ctxt_app inversion lemmas *)
+
+  eapply wf_par with (G1 := (zero m ⊗ Da1)) (G2 := (zero m ⊗ Da2))
+    (D1 := (zero n ⊗ D1)) (D2 := (zero n ⊗ D2)).
+  3, 4 : (reflexivity).
+  
+  assert (Db1 ≡[m] zero m /\ Db2 ≡[m] zero m). 
+  { split. all : (unfold sum, ctxt_eq, zero in *; intros x Hx;
+    specialize (HDb x); apply HDb in Hx; lia). }
+  destruct H0 as (HDb1 & HDb2).
+  rewrite HDb1 in HG1. rewrite HDb2 in HG2.
+  
 Admitted.
 
 
