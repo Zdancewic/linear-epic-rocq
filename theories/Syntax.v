@@ -2514,15 +2514,10 @@ Proof.
     intros y Hy.
     specialize (H y Hy).
     destruction; try lia. }
-  symmetry in H; rewrite H0 in H; clear H0. 
-  unfold ctxt_eq, zero.
-  intros y Hy. 
-  unfold one, delta, ctxt_app, ctxt_eq, zero in H.
-  specialize (H y).
-  assert (y < n + m) by lia. 
-  apply H in H0. 
-  lia_destruct. 
-Admitted. 
+  rewrite H in H0.
+  apply ctxt_app_inv_r_eq in H0.
+  assumption.
+Qed.
 
 Lemma ctxt_one_eq_app_zero_inv :
   forall n m x (D : lctxt n)
