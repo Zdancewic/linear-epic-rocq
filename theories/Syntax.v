@@ -2502,14 +2502,159 @@ Proof.
   assumption.
 Qed.
 
+Lemma ctxt_one_eq_app_zero :
+  forall n m x (D : lctxt m)
+    (Hx : x < n)
+    (H : one (n + m) x ≡[n + m] (one n x) ⊗ D),
+    D ≡[m] zero m.
+Proof. 
+  intros.
+  assert (one (n + m) x ≡[n + m] (one n x) ⊗ (zero m)).
+  { unfold ctxt_eq, ctxt_app, one, zero, delta in *.
+    intros y Hy.
+    specialize (H y Hy).
+    destruction; try lia. }
+  symmetry in H; rewrite H0 in H; clear H0. 
+  unfold ctxt_eq, zero.
+  intros y Hy. 
+  unfold one, delta, ctxt_app, ctxt_eq, zero in H.
+  specialize (H y).
+  assert (y < n + m) by lia. 
+  apply H in H0. 
+  lia_destruct. 
+Admitted. 
+
+Lemma ctxt_one_eq_app_zero_inv :
+  forall n m x (D : lctxt n)
+    (Hx : ~ x < n)
+    (Hx' : x < n + m)
+    (H : one (n + m) x ≡[n + m] (zero n) ⊗ D ),
+    D ≡[m] (one m (x - n)).
+Proof. 
+  intros. 
+  unfold ctxt_eq, ctxt_app, one, zero, delta in *.
+  intros y Hy. 
+  specialize (H y). 
+  assert (y < n + m) by lia; apply H in H0.
+  destruct (lt_dec (x - n) m); try lia.
+  destruct (Nat.eq_dec (x - n) y); try lia.
+  lia_destruct.
+Admitted. 
+
+
 Lemma scope_extrude_one :
   forall m0 m1 m2 (G0 : lctxt m0) (G1 : lctxt m1) (G2 : lctxt m2) (f : nat)
     (HF : f < m0 + (m1 + m2))
     (HG : one (m0 + (m1 + m2)) f ≡[m0 + (m1 + m2)] G0 ⊗ (G1 ⊗ G2)),
     one (m0 + (m2 + m1)) (ren_f_extrude_str m0 m1 m2 f) ≡[m0 + (m2 + m1)] G0 ⊗ (G2 ⊗ G1).
 Proof.
-  
-Admitted.  
+  intros. 
+  unfold ren_f_extrude_str; destruction.
+
+  - assert (G0 ≡[m0] (one m0 f)).
+    { unfold zero, one, delta, ctxt_eq, ctxt_app in *.
+      intros x HX.
+      specialize (HG x).
+      assert (x < m0 + (m1 + m2)) by lia; apply HG in H.
+      destruct (lt_dec f m0); try lia.
+      destruct (Nat.eq_dec f x); try lia.
+      try lia_destruct. lia_destruct. }
+    rewrite H in *; clear H.
+    assert (G1 ⊗ G2 ≡[m1 + m2] (zero (m1 + m2))).
+    { apply ctxt_one_eq_app_zero with (n := m0) (x := f); try assumption. }
+    symmetry in H.
+    assert (H' : zero (m1 + m2) ≡[m1 + m2] G1 ⊗ G2) by (apply H).
+    apply ctxt_zero_app_inv_r in H'.
+    apply ctxt_zero_app_inv_l in H.
+    assert ((@ctxt_app _ m2 m1 G2 G1) ≡[m2 + m1] (zero (m2 + m1))).
+    { unfold zero, ctxt_app, ctxt_eq.
+      intros x Hx. 
+      destruct (lt_dec x m2); try lia.
+      symmetry in H'; rewrite H'; unfold zero; lia.
+      symmetry in H; rewrite H; unfold zero; lia. }
+    rewrite H0. unfold one, delta, ctxt_eq, ctxt_app, zero.
+    intros x Hx. destruction.
+
+      (* taking ctxt_one_eq_app_zero as given for now
+    assert ((@ctxt_app _ m1 m2 G1 G2) ≡[m1 + m2] (zero (m1 + m2))).
+    { rewrite H in HG.
+      assert ((one (m0 + (m1 + m2)) f) =
+              (one (m0 + (m1 + m2)) f) ⨥ (zero (m0 + (m1 + m2)))).
+      { symmetry. apply sum_zero_r. } 
+      rewrite H0 in HG. 
+      symmetry in HG. apply sum_app_inv_ctxt in HG.
+      destruct HG as (Da1 & Da2 &Db1 & Db2 & HD1 & HD2 & Hm0 & Hm12).
+      assert (HD2' : zero (m0 + (m1 + m2)) ≡[ m0 + (m1 + m2)] Da2 ⊗ Db2) by (apply HD2). 
+      apply ctxt_zero_app_inv_r in HD2; symmetry in HD2.
+      apply ctxt_zero_app_inv_l in HD2'; symmetry in HD2'.
+      rewrite HD2 in Hm12. rewrite HD2' in Hm0. 
+      assert (Da1 ≡[m0] one m0 f). 
+      { unfold ctxt_eq. intros x Hx.
+        unfold sum, zero, ctxt_eq in Hm0.
+        specialize (Hm0 x); apply Hm0 in Hx; try lia. }
+      rewrite H0 in HD1. rewrite H1 in HD1.
+      assert (Db1 ≡[m1 + m2] (zero (m1 + m2))).
+      { symmetry in HD1. apply sum_app_inv_ctxt in HD1.
+        destruct HD1 as (Da3 & Da4 & Db3 & Db4 & HD3 & HD4 & H3 & H4).
+        assert (HD4' : zero (m0 + (m1 + m2)) ≡[ m0 + (m1 + m2)] Da4 ⊗ Db4) by (apply HD4). 
+        apply ctxt_zero_app_inv_r in HD4; symmetry in HD4.
+        apply ctxt_zero_app_inv_l in HD4'; symmetry in HD4'.
+        rewrite HD4 in H4. rewrite HD4' in H3. 
+        assert (Da1 ≡[m0] one m0 f). 
+        { unfold ctxt_eq. intros x Hx.
+          unfold sum, zero, ctxt_eq in Hm0.
+          specialize (Hm0 x); apply Hm0 in Hx; try lia. }
+        rewrite H0 in HD1. rewrite H1 in HD1. } }
+    rewrite H0.
+    rewrite ctxt_app_zero_zero.
+    rewrite HG.
+    reflexivity. *) 
+
+  - assert (G0 ≡[m0] (zero m0)). 
+    { unfold zero, one, delta, ctxt_eq, ctxt_app in *.
+      intros x Hx.
+      specialize (HG x).
+      assert (x < m0 + (m1 + m2)) by lia; apply HG in H.
+      destruct (lt_dec f m0); try lia.
+      destruct (Nat.eq_dec f x); try lia.
+      try lia_destruct. }
+    rewrite H in *; clear H.
+    apply ctxt_one_eq_app_zero_inv with (n := m0) (x := f) in HG; try lia.
+    assert (G1 ≡[m1] (one m1 (f - m0))).
+    { unfold ctxt_eq, one, delta, ctxt_app in *. 
+      intros x Hx.
+      specialize (HG x).
+      assert (x < (m1 + m2)) by lia; apply HG in H.
+      destruction.
+      lia_destruct. lia_destruct. }
+    rewrite H in HG.
+    symmetry in HG; apply ctxt_one_eq_app_zero in HG; try lia.
+    rewrite HG; rewrite H.
+    unfold one, delta, ctxt_eq, zero, ctxt_app.
+    intros x Hx; destruction.
+
+  - assert (G0 ≡[m0] (zero m0)). 
+    { unfold zero, one, delta, ctxt_eq, ctxt_app in *.
+      intros x Hx.
+      specialize (HG x).
+      assert (x < m0 + (m1 + m2)) by lia; apply HG in H.
+      destruct (lt_dec f m0); try lia.
+      destruct (Nat.eq_dec f x); try lia.
+      try lia_destruct. }
+    rewrite H in *; clear H.
+    apply ctxt_one_eq_app_zero_inv with (n := m0) (x := f) in HG; try lia.
+    assert (G1 ≡[m1] (zero m1)).
+    { unfold ctxt_eq, one, delta, ctxt_app in *. 
+      intros x Hx.
+      specialize (HG x).
+      assert (x < (m1 + m2)) by lia; apply HG in H.
+      lia_destruct; unfold zero; assumption. }
+    rewrite H in HG.
+    symmetry in HG; apply ctxt_one_eq_app_zero_inv in HG; try lia.
+    rewrite HG; rewrite H.
+    unfold one, delta, ctxt_eq, zero, ctxt_app.
+    intros x Hx; destruction.
+Qed. 
     
 
 Lemma wf_rename_fvar_extrude_wpo :
@@ -2949,7 +3094,7 @@ assert (G  ≡[m'] (zero m')).
     intros x LT.
     unfold ctxt_app, zero, one, delta in HG, H0.
     assert (x < m' + m) by lia.
-    specialize (HG x H1).
+    specialize (HG x H2).
     specialize (H0 x LT).
     lia_destruct; lia_goal; auto. subst.
     
