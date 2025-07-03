@@ -2470,7 +2470,7 @@ Definition ren_f_extrude m m' : ren (m + m') (m' + m) :=
 
 Definition scope_extrude m m' n n' Q :=
     let Q1 := @rename_rvar_proc n (n' + n) (fun x => n + x) Q in
-    let Q2 := @rename_fvar_proc (0 + (m' + m)) (0 + (m + m')) (ren_f_extrude_str 0 m' m) Q1 in
+    let Q2 := @rename_fvar_proc (0 + (m + m')) (0 + (m' + m)) (ren_f_extrude_str 0 m m') Q1 in
     Q2.
 
 Lemma ctxt_zero_app_inv_l :
@@ -2987,7 +2987,7 @@ Qed.
 Lemma wf_scope_extrude :
   forall m m' n n' (G : lctxt m') (D : lctxt n') Q,
    wf_proc (m' + m) n' (G ⊗ zero m) D Q ->
-   wf_proc (m + m') (n + n') (zero m ⊗ G) (zero n ⊗ D) (scope_extrude m m' n n' Q).
+   wf_proc (m + m') (n + n') (zero m ⊗ G) (zero n ⊗ D) (scope_extrude m' m n n' Q).
 Proof.
 intros.
 unfold scope_extrude.
@@ -3123,7 +3123,12 @@ assert (G  ≡[m'] (zero m')).
   unfold zero, ctxt_app, one, delta. 
   intros x Hx; destruction.
   all : (rewrite HD; unfold one, delta; destruction; try lia).
-- apply sum_app_inv_ctxt in HG.
+- 
+  unfold ren_f_extrude_str.
+  unfold rename_rvar_proc.
+  unfold rename_rvar_oper.
+
+  apply sum_app_inv_ctxt in HG.
   destruct HG as (Da1 & Da2 & Db1 & Db2 & HG1 & HG2 & HDa & HDb).
   assert ((@ctxt_app _ m m' (zero m) G) ≡[m + m'] 
           ((@ctxt_app _ m m' (zero m) Da1) ⨥ (@ctxt_app _ m m' (zero m) Da2))).
@@ -3138,15 +3143,7 @@ assert (G  ≡[m'] (zero m')).
     intros x Hx.
     destruction; try lia. }
   rewrite H0; clear H0. rewrite H1; clear H1.
-
-  eapply wf_par with (G1 := (@ctxt_app _ m m' (zero m) Da1)) (G2 := (@ctxt_app _ m m' (zero m) Da2))
-                     (D1 := 
-  
-  unfold scope_extrude.
-  unfold ren_f_extrude_str.
-  unfold rename_rvar_proc.
-  unfold rename_rvar_oper.
-  (* G1 and G2 are wrong here *) 
+      
  
   (* see ctxt_app inversion lemmas *)
 Admitted.
