@@ -2527,14 +2527,15 @@ Lemma ctxt_one_eq_app_zero_inv :
     D ≡[m] (one m (x - n)).
 Proof. 
   intros. 
-  unfold ctxt_eq, ctxt_app, one, zero, delta in *.
-  intros y Hy. 
-  specialize (H y). 
-  assert (y < n + m) by lia; apply H in H0.
-  destruct (lt_dec (x - n) m); try lia.
-  destruct (Nat.eq_dec (x - n) y); try lia.
-  lia_destruct.
-Admitted. 
+  assert (one (n + m) x ≡[n + m] (zero m) ⊗ (one m (x - n))).
+  { unfold ctxt_eq, ctxt_app, one, zero, delta in *.
+    intros y Hy.
+    specialize (H y Hy).
+    destruction; try lia. }
+  rewrite H in H0.
+  apply ctxt_app_inv_r_eq in H0.
+  assumption.
+Qed. 
 
 
 Lemma scope_extrude_one :
@@ -2569,41 +2570,6 @@ Proof.
       symmetry in H; rewrite H; unfold zero; lia. }
     rewrite H0. unfold one, delta, ctxt_eq, ctxt_app, zero.
     intros x Hx. destruction.
-
-      (* taking ctxt_one_eq_app_zero as given for now
-    assert ((@ctxt_app _ m1 m2 G1 G2) ≡[m1 + m2] (zero (m1 + m2))).
-    { rewrite H in HG.
-      assert ((one (m0 + (m1 + m2)) f) =
-              (one (m0 + (m1 + m2)) f) ⨥ (zero (m0 + (m1 + m2)))).
-      { symmetry. apply sum_zero_r. } 
-      rewrite H0 in HG. 
-      symmetry in HG. apply sum_app_inv_ctxt in HG.
-      destruct HG as (Da1 & Da2 &Db1 & Db2 & HD1 & HD2 & Hm0 & Hm12).
-      assert (HD2' : zero (m0 + (m1 + m2)) ≡[ m0 + (m1 + m2)] Da2 ⊗ Db2) by (apply HD2). 
-      apply ctxt_zero_app_inv_r in HD2; symmetry in HD2.
-      apply ctxt_zero_app_inv_l in HD2'; symmetry in HD2'.
-      rewrite HD2 in Hm12. rewrite HD2' in Hm0. 
-      assert (Da1 ≡[m0] one m0 f). 
-      { unfold ctxt_eq. intros x Hx.
-        unfold sum, zero, ctxt_eq in Hm0.
-        specialize (Hm0 x); apply Hm0 in Hx; try lia. }
-      rewrite H0 in HD1. rewrite H1 in HD1.
-      assert (Db1 ≡[m1 + m2] (zero (m1 + m2))).
-      { symmetry in HD1. apply sum_app_inv_ctxt in HD1.
-        destruct HD1 as (Da3 & Da4 & Db3 & Db4 & HD3 & HD4 & H3 & H4).
-        assert (HD4' : zero (m0 + (m1 + m2)) ≡[ m0 + (m1 + m2)] Da4 ⊗ Db4) by (apply HD4). 
-        apply ctxt_zero_app_inv_r in HD4; symmetry in HD4.
-        apply ctxt_zero_app_inv_l in HD4'; symmetry in HD4'.
-        rewrite HD4 in H4. rewrite HD4' in H3. 
-        assert (Da1 ≡[m0] one m0 f). 
-        { unfold ctxt_eq. intros x Hx.
-          unfold sum, zero, ctxt_eq in Hm0.
-          specialize (Hm0 x); apply Hm0 in Hx; try lia. }
-        rewrite H0 in HD1. rewrite H1 in HD1. } }
-    rewrite H0.
-    rewrite ctxt_app_zero_zero.
-    rewrite HG.
-    reflexivity. *) 
 
   - assert (G0 ≡[m0] (zero m0)). 
     { unfold zero, one, delta, ctxt_eq, ctxt_app in *.
@@ -2983,8 +2949,6 @@ Qed.
 
 
 
-
-
 (* Can definitely make this more concise by unfolding everything at the outset.
   But I am finding it conceptually easier to work with 'folded' defs for now. *)
 Lemma wf_scope_extrude :
@@ -3060,21 +3024,20 @@ assert (G  ≡[m'] (zero m')).
     destruction.
     all : (rewrite H0; unfold one, delta; destruction; try lia).
   }
-  unfold scope_extrude.
-  unfold ren_f_extrude, ren_f_extrude_str.
-  unfold rename_rvar_proc.
-  unfold rename_rvar_oper.
   eapply wf_def with (D' := (@ctxt_app _ n n' (zero n) D')); try lia.
   unfold zero, ctxt_app, one, delta, sum. 
   intros x Hx; destruction.
   1, 2 : (rewrite HD; try lia; unfold one, delta, sum; destruction). 
-  (* Uh-oh! *)
   apply wf_bng.
-  destruction; try lia.
+  1 : unfold ren_f_extrude_str. destruction.
   2 : { unfold zero, ctxt_app. 
       intros x Hx. destruct (lt_dec x n); try lia.
       rewrite HD0; unfold zero; try lia. }
 
+  (*   unfold scope_extrude.
+   unfold ren_f_extrude, ren_f_extrude_str. 
+  unfold rename_rvar_proc.
+  unfold rename_rvar_oper.  *)
   destruct (lt_dec f 0); try lia.
   destruct (lt_dec f (0 + m)); try lia.
 
