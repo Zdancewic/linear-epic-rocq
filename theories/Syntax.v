@@ -3203,15 +3203,24 @@ Proof.
   unfold one in HD.
 
   (* --------------------------------------------------------------------------------------------------- *)
-  eapply wf_bag with (G := G) (D := (zero n))  (G' := G')(D' := D').
+  eapply wf_bag with (G := G) (D := (zero n)) (G' := (@ctxt_app _ m'' m' G'0 G')) (D' := (@ctxt_app _ n'' n' D'2 D')).
+  - intros x Hx. unfold ctxt_app. destruct (lt_dec x m'').
+    specialize (UG'0 x); apply UG'0 in l; assumption.
+    assert (x - m'' < m') by lia.
+    specialize (UG' (x - m'')); apply UG' in H; assumption.
+  - intros x Hx.
+    unfold ctxt_app. destruct (lt_dec x n'').
+    specialize (UD'0 x); apply UD'0 in l; assumption.
+    assert (x - n'' < n') by lia.
+    specialize (UD' (x - n'')); apply UD' in H; assumption.
+  - replace ((@ctxt_app _ (m'' + m') m (@ctxt_app _ m'' m' G'0 G') G)) with 
+            (@ctxt_app _ m'' (m' + m) G'0 (@ctxt_app _ m' m G' G)).
+    assert ((@ctxt_app _ (m'' + m') m (@ctxt_app _ m'' m' G'0 G') G) = 
+            (@ctxt_app _ m'' (m' + m) G'0 (@ctxt_app _ m' m G' G)))
+    by (symmetry; apply ctxt_app_assoc).
+    rewrite H.
+    eapply wf_par.
   
-  3 : { 
-    eapply wf_par with (G1 := G1) (G2 := G4) (D1 := D1) 
-                       (D2 := ((n' + n) [r ↦ 1] ⨥ (((n' + n) [r ↦ 1] ⨥ D'1) ⨥ (n' + n) [r' ↦ 1]))).
-   
-  apply wf_lam. 
-
-  }
 
 Admitted. 
 
