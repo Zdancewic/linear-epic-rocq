@@ -2982,10 +2982,7 @@ Proof.
   apply wf_rename_fvar.
 Qed.
 
-(*
-wf_proc (m' + m) n' (G ⊗ zero m) D Q ->
-   wf_proc (m + m') (n + n') (zero m ⊗ G) (zero n ⊗ D) (scope_extrude m' m n n' Q).
-*)
+
 Lemma wf_scope_extrude :
  forall (m m' n n' : nat) (G : lctxt m') (G' : lctxt m) (D : lctxt n') (Q : proc),
   wf_proc (m' + m) n' (G ⊗ G') D Q ->   
@@ -2993,9 +2990,9 @@ Lemma wf_scope_extrude :
 Proof.
 intros. 
 induction Q. 
-all : (unfold scope_extrude; inversion H; existT_eq; subst).
+1, 2 : (unfold scope_extrude; inversion H; existT_eq; subst).
 
-- all : (inversion WFO; existT_eq; subst; simpl).
+- inversion WFO; existT_eq; subst; simpl.
   assert (G  ≡[m'] (zero m')). 
   { symmetry in HG; apply ctxt_zero_app_inv_l in HG.
     symmetry; assumption. }
@@ -3135,21 +3132,15 @@ all : (unfold scope_extrude; inversion H; existT_eq; subst).
   intros x Hx; destruction.
   all : (rewrite HD; unfold one, delta; destruction; try lia).
   
-- simpl. apply wf_par with (P1 := (scope_extrude m' m n n' Q1)) 
-                           (P2 := (scope_extrude m' m n n' Q2)).
-  (* 
-  unfold ren_f_extrude_str.
-  unfold rename_rvar_proc.
-  unfold rename_rvar_oper.
-  eapply wf_par.
-
-  eapply wf_rename_fvar_proc. *) 
+- simpl.
+  unfold scope_extrude; inversion H; existT_eq; subst.
 
   apply sum_app_inv_ctxt in HG.
   destruct HG as (Da1 & Da2 & Db1 & Db2 & HG1 & HG2 & HDa & HDb).
-  assert ((@ctxt_app _ m m' (zero m) G) ≡[m + m'] 
-          ((@ctxt_app _ m m' (zero m) Da1) ⨥ (@ctxt_app _ m m' (zero m) Da2))).
+  assert ((@ctxt_app _ m m' G' G) ≡[m + m'] 
+          ((@ctxt_app _ m m' Db1 Da1) ⨥ (@ctxt_app _ m m' Db2 Da2))).
   { symmetry in HDa. rewrite HDa.
+    symmetry in HDb. rewrite HDb.
     unfold zero, ctxt_app, sum, ctxt_eq. 
     intros x Hx. destruction; try lia. }
    assert ((@ctxt_app _ n n' (zero n) D) ≡[n + n'] 
@@ -3160,16 +3151,15 @@ all : (unfold scope_extrude; inversion H; existT_eq; subst).
     destruction; try lia. }
   rewrite H0; clear H0. rewrite H1; clear H1.
 
-  eapply wf_par with (G1 := (zero m ⊗ Da1)) (G2 := (zero m ⊗ Da2))
+  eapply wf_par with (G1 := (Db1 ⊗ Da1)) (G2 := (Db2 ⊗ Da2))
     (D1 := (zero n ⊗ D1)) (D2 := (zero n ⊗ D2)).
   3, 4 : (reflexivity).
   
-  assert (Db1 ≡[m] zero m /\ Db2 ≡[m] zero m). 
-  { split. all : (unfold sum, ctxt_eq, zero in *; intros x Hx;
-    specialize (HDb x); apply HDb in Hx; lia). }
-  destruct H0 as (HDb1 & HDb2).
-  rewrite HDb1 in HG1. rewrite HDb2 in HG2.
-  
+  (* If IHQ1, IHQ2 were universally quantified here, then I could instantiate
+     with (G := Da1) (G' := Db1) in IHQ1 and with (G := Da2) (G' := Db2) in IHQ2.
+     Since G1 ≡[ m' + m] Da1 ⊗ Db1, and G2 ≡[ m' + m] Da2 ⊗ Db2, we obtain the
+     consequents by WFP1 and WFP2. *)
+
 Admitted.
 
 
