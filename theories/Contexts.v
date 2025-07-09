@@ -148,6 +148,7 @@ Qed.
 Lemma ctxt_app_assoc : forall {X} {n m l} (c : ctxt n X) (d : ctxt m X) (e : ctxt l X),
     c ⊗ (d ⊗ e) = (c ⊗ d) ⊗ e.
 Proof.
+  Set Printing All.
   intros.
   unfold ctxt_app.
   apply functional_extensionality.
