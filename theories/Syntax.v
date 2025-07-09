@@ -2785,13 +2785,16 @@ Lemma wf_rename_fvar :
     (rename_fvar_oper (ren_f_extrude_str m0 m1 m2) o)).
 Proof.
 apply wf_tpo_ind; intros.
+
 - eapply wf_bag with (G' := G') (D' := D'); try assumption.
   specialize (H (m' + m0) m1 m2 (@ctxt_app _ m' m0 G' G0)).
   assert (m' + m = m' + m0 + (m1 + m2)) by lia. 
   apply H in H0.
+
   2 : { unfold ctxt_app, zero, ctxt_eq.
         intros x Hx; destruction. 
         all : (rewrite HG; unfold ctxt_app, zero; destruction; try lia).  }
+        
   assert ((@ctxt_app _ (m' + m0) (m2 + m1) (G' ⊗ G0) (zero (m2 + m1))) =
           (@ctxt_app _ m' (m0 + (m2 + m1)) G' (G0 ⊗ (zero (m2 + m1))))).
   { apply ctxt_app_assoc_zero. }
@@ -2812,47 +2815,55 @@ apply wf_tpo_ind; intros.
   replace (m' + (m0 + (m2 + m1))) with (m' + m0 + (m2 + m1)) by lia.
   replace (m' + (m0 + (m1 + m2))) with (m' + m0 + (m1 + m2)) by lia.
   assumption.
+
 - eapply wf_def with (D' := D'); try lia; try assumption.
   specialize (H m0 m1 m2 G0).
   assert (m = m0 + m1 + m2) by lia.
   apply H in H0.
-  2 : { assumption. }
-  assumption.
+  all : assumption.
+
 - eapply wf_app; try lia; try assumption.
   unfold ren_f_extrude_str. 
-  destruct (lt_dec f m0); try lia.
-  destruct (lt_dec f (m0 + m1)); try lia.
+  destruction.
+
   unfold ctxt_app, zero, ctxt_eq; intros x Hx.
   destruct (lt_dec x m0); try lia. 
   rewrite HG in HG0; symmetry in HG0. 
   unfold ctxt_app, zero, ctxt_eq in HG0.
   specialize (HG0 x); assert (x < m) by lia; apply HG0 in H.
   destruct (lt_dec x m0) in H; try lia.
+
 - assert (exists (G1a G2a : lctxt m0) (G1b G2b : lctxt (m1 + m2)),
-    (G1 ≡[m0 + (m1 + m2)] G1a ⊗ G1b) /\ (G2 ≡[m0 + (m1 + m2)] G2a ⊗ G2b) 
-    /\ (G1a ⨥ G2a) ≡[m0] G0 /\ (G1b ⨥ G2b) ≡[m1 + m2] (zero (m1 + m2))).
-  { symmetry in HG0. rewrite HG in HG0. 
-    rewrite HM in HG0.
+    (G1 ≡[m0 + (m1 + m2)] G1a ⊗ G1b) /\ (G2 ≡[m0 + (m1 + m2)] G2a ⊗ G2b) /\
+    (G1a ⨥ G2a) ≡[m0] G0 /\ (G1b ⨥ G2b) ≡[m1 + m2] (zero (m1 + m2))).
+  { symmetry in HG0. rewrite HG in HG0. rewrite HM in HG0.
     apply sum_app_inv_ctxt in HG0. 
     assumption. }
   edestruct H1 as (G1a & G2a & G1b & G2b & HG1 & HG2 & HGa & HGb); clear H1.
   eapply wf_par with (G1 := G1) (G2 := G2) (D1 := D1) (D2 := D2); try assumption.
+
   3 : { unfold ctxt_app, zero, ctxt_eq, sum. intros x Hx.
-        destruct (lt_dec x m0); try lia. 
+        destruct (lt_dec x m0); try lia.
+
         unfold ctxt_eq, ctxt_app, zero in HG0.
         specialize (HG0 x); assert (x < m) by lia; apply HG0 in H1.
         destruct (lt_dec x m0) in H1; try lia. 
         symmetry in H1; rewrite H1; unfold ctxt_eq in HG.
         specialize (HG x); assert (x < m) by lia; apply HG in H2; assumption.
+
         unfold ctxt_eq, sum in HG.
         unfold ctxt_eq, ctxt_app, zero in HG0. 
         specialize (HG x); specialize (HG0 x).
         assert (x < m) by lia; apply HG in H1.
         assert (x < m) by lia; apply HG0 in H2. 
         destruct (lt_dec x m0) in H2; try lia. }
+        
   assert (G1b ≡[m1 + m2] (zero (m1 + m2)) /\ G2b ≡[m1 + m2] (zero (m1 + m2))).
-  { split. all : (unfold ctxt_eq, zero; intros x Hx; 
-    unfold sum, ctxt_eq, zero in HGb; specialize (HGb x); apply HGb in Hx; try lia). }
+  { split. 
+    all : (unfold ctxt_eq, zero; intros x Hx; 
+    unfold sum, ctxt_eq, zero in HGb; 
+    specialize (HGb x); 
+    apply HGb in Hx; try lia). }
   destruct H1 as (H1 & H2).
   1 : { specialize (H m0 m1 m2 G1a).
         apply H in HM. 
