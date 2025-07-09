@@ -2984,15 +2984,16 @@ Qed.
 
 
 Lemma wf_scope_extrude :
- forall (m m' n n' : nat) (G : lctxt m') (G' : lctxt m) (D : lctxt n') (Q : proc),
+ forall (Q : proc),
+  forall (m m' n n' : nat) (G : lctxt m') (G' : lctxt m) (D : lctxt n'),
   wf_proc (m' + m) n' (G ⊗ G') D Q ->   
   wf_proc (m + m') (n + n') (G' ⊗ G) (zero n ⊗ D) (scope_extrude m' m n n' Q).
 Proof.
-intros. 
-induction Q. 
-1, 2 : (unfold scope_extrude; inversion H; existT_eq; subst).
+intros Q; induction Q. 
 
-- inversion WFO; existT_eq; subst; simpl.
+- intros m m' n n' G G' D H.
+  unfold scope_extrude; inversion H; existT_eq; subst.
+  inversion WFO; existT_eq; subst; simpl.
   assert (G  ≡[m'] (zero m')). 
   { symmetry in HG; apply ctxt_zero_app_inv_l in HG.
     symmetry; assumption. }
@@ -3114,7 +3115,9 @@ induction Q.
     try assumption. try lia.
     replace (0 + (m + m')) with (m' + m) in H0 by lia; assumption.
 
-- apply wf_app; try lia.
+- intros m m' n n' G G' D H.
+  unfold scope_extrude; inversion H; existT_eq; subst.
+  apply wf_app; try lia.
   unfold ren_f_extrude_str; destruction.
   
   assert (G  ≡[m'] (zero m')). 
@@ -3133,6 +3136,7 @@ induction Q.
   all : (rewrite HD; unfold one, delta; destruction; try lia).
   
 - simpl.
+  intros m m' n n' G G' D H.
   unfold scope_extrude; inversion H; existT_eq; subst.
 
   apply sum_app_inv_ctxt in HG.
@@ -3154,13 +3158,20 @@ induction Q.
   eapply wf_par with (G1 := (Db1 ⊗ Da1)) (G2 := (Db2 ⊗ Da2))
     (D1 := (zero n ⊗ D1)) (D2 := (zero n ⊗ D2)).
   3, 4 : (reflexivity).
-  
-  (* If IHQ1, IHQ2 were universally quantified here, then I could instantiate
-     with (G := Da1) (G' := Db1) in IHQ1 and with (G := Da2) (G' := Db2) in IHQ2.
-     Since G1 ≡[ m' + m] Da1 ⊗ Db1, and G2 ≡[ m' + m] Da2 ⊗ Db2, we obtain the
-     consequents by WFP1 and WFP2. *)
 
-Admitted.
+  specialize (IHQ1 m m' n n' Da1 Db1 D1).
+  rewrite HG1 in WFP1.
+  apply IHQ1 in WFP1.
+  unfold scope_extrude in *. 
+  assumption. 
+
+  specialize (IHQ2 m m' n n' Da2 Db2 D2).
+  rewrite HG2 in WFP2.
+  apply IHQ2 in WFP2.
+  unfold scope_extrude in *. 
+  assumption.
+
+Qed.
 
 
 
