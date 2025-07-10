@@ -2661,6 +2661,7 @@ Proof.
     rewrite <- ctxt_app_assoc in HG.
     rewrite <- Nat.add_assoc in HG.
     apply ctxt_one_eq_app_zero_inv with (n := m0) (x := f) in HG; try lia.
+
     assert (G1 ≡[m1] (zero m1)).
     { unfold ctxt_eq, one, delta, ctxt_app in *. 
       intros x Hx.
@@ -2680,8 +2681,7 @@ Proof.
       destruct (lt_dec (f - m0 - m1) (m2 + m3)); try lia.
       lia_destruct; unfold zero.
       replace (x + m2 - m2) with x in H0 by lia.
-      assumption.
-    }
+      assumption. }
     rewrite H0.
     rewrite H0 in HG.
     symmetry in HG.
@@ -2689,8 +2689,46 @@ Proof.
     rewrite HG.
     unfold one, delta, ctxt_eq, zero, ctxt_app.
     intros x Hx; destruction.
-  -  (* TODO : This case should follow similarly to the above. *)
-Admitted.
+  - assert (G0 ≡[m0] (zero m0)). 
+    { unfold zero, one, delta, ctxt_eq, ctxt_app in *.
+      intros x Hx.
+      specialize (HG x).
+      assert (x < m0 + (m1 + m2) + m3) by lia; apply HG in H.
+      destruct (lt_dec f m0); try lia.
+      destruct (Nat.eq_dec f x); try lia.
+      try lia_destruct. }
+    rewrite H in *; clear H.
+    rewrite <- ctxt_app_assoc in HG.
+    rewrite <- Nat.add_assoc in HG.
+    apply ctxt_one_eq_app_zero_inv with (n := m0) (x := f) in HG; try lia.
+    
+    assert (G1 ≡[m1] (zero m1)).
+    { unfold ctxt_eq, one, delta, ctxt_app in *. 
+      intros x Hx.
+      specialize (HG x).
+      assert (x < (m1 + m2 + m3)) by lia; apply HG in H.
+      lia_destruct; unfold zero; assumption. }
+    rewrite H in HG.
+    rewrite <- Nat.add_assoc in HG.
+    rewrite <- ctxt_app_assoc in HG.
+    symmetry in HG; apply ctxt_one_eq_app_zero_inv in HG; try lia.
+    rewrite H.
+    
+    assert (G2 ≡[m2] zero m2).
+    { unfold ctxt_eq, one, delta, ctxt_app in *. 
+      intros x Hx.
+      assert (x < (m2 + m3)) by lia; apply HG in H0.
+      destruct (lt_dec (f - m0 - m1) (m2 + m3)); try lia.
+      lia_destruct; unfold zero.
+      assumption. }
+    rewrite H0.
+    rewrite H0 in HG.
+    symmetry in HG.
+    apply ctxt_one_eq_app_zero_inv in HG; try lia.
+    rewrite HG.
+    unfold one, delta, ctxt_eq, zero, ctxt_app.
+    intros x Hx; destruction.
+Qed.
     
 
 Lemma wf_rename_fvar_ren_commute_wpo :
