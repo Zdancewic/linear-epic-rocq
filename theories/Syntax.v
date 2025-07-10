@@ -2975,29 +2975,139 @@ Lemma wf_weaken_f_wpo :
 Proof.
 apply wf_tpo_ind; intros; simpl.
 - eapply wf_bag with (G' := G') (D' := D'); try assumption.
-  specialize (H m0 (m' + m'0) m'' G0 (@ctxt_app _ m' m0 G' G'0)).
+  specialize (H m0 (m' + m'0) m'' G0 (@ctxt_app _ m' m'0 G' G'0)).
   assert (m' + m = m' + m'0 + m0) by lia. 
   apply H in H0.
-  rewrite ren_shift_ren_commute_str.
+  rewrite ren_shift_weaken_commute.
   repeat rewrite <- Nat.add_assoc in H0.
   repeat rewrite <- ctxt_app_assoc in H0.
   repeat rewrite <- Nat.add_assoc.  
   repeat rewrite <- ctxt_app_assoc.
   apply H0.
-  (*
-  2 : { rewrite HG.
-        replace (m' + m) with (m' + (m'0 + m0)) by lia.
-        repeat rewrite <- ctxt_app_assoc. 
-        reflexivity. } 
-  rewrite ren_shift_ren_commute_str.
-  repeat rewrite <- Nat.add_assoc in H0.
-  repeat rewrite <- ctxt_app_assoc in H0.
-  repeat rewrite <- Nat.add_assoc.  
-  repeat rewrite <- ctxt_app_assoc.
-  apply H0.
+   
+  rewrite HG.
+  replace (m' + m) with (m' + (m'0 + m0)) by lia.
+  repeat rewrite <- ctxt_app_assoc. 
+  reflexivity.
 
-- eapply wf_def with (D' := D'); auto. *)
-Admitted.
+- eapply wf_def with (D' := D'); auto.
+
+- eapply wf_app; auto.
+  + unfold weaken_ren.
+    lia_goal.
+  + rewrite HG in HG0.
+    rewrite HM in HG0.
+    assert (zero m0 ≡[m0] G0). 
+    { specialize (ctxt_zero_app_inv_r _ _ _ _ HG0); auto. }
+    specialize (ctxt_zero_app_inv_r _ _ _ _ HG0).
+    assert (zero m' ≡[m'] G'). 
+    { specialize (ctxt_zero_app_inv_l _ _ _ _ HG0); auto. }
+    rewrite <- H.
+    rewrite <- H0.
+    repeat rewrite ctxt_app_zero_zero.
+    reflexivity.
+    
+- rewrite HG in HG0.
+  symmetry in HG0.
+  rewrite HM in HG0.
+  specialize (sum_app_inv_ctxt _ _ _ _ _ _ HG0).
+  intros HX.
+  destruct HX as (G1a & G2a & G1x & G2x & HG1 & HG2 & HGa & HGx).
+  symmetry in HGx.
+  eapply wf_par with (D1:=D1) (D2:=D2)
+                     (G1 := (@ctxt_app _ (m' + m'') m0 (G1a ⊗ (zero m'')) G1x))
+                     (G2 := (@ctxt_app _ (m' + m'') m0 (G2a ⊗ (zero m'')) G2x)); 
+  try assumption.
+  + specialize (H m0 m' m'' G1x G1a).
+    symmetry in HM; rewrite HM in HG1.
+    symmetry in HM; apply H in HM.
+    all : assumption.
+  + specialize (H0 m0 m' m'' G2x G2a).
+    symmetry in HM; rewrite HM in HG2.
+    symmetry in HM; apply H0 in HM.
+    all : assumption.
+  + symmetry in HGa; rewrite HGa.
+    replace (zero m'') with ((zero m'') ⨥ (zero m'')).
+    rewrite <- lctxt_sum_app_dist.
+    replace ((zero m'') ⨥ (zero m'')) with (zero m'').
+    rewrite HGx.
+    rewrite <- lctxt_sum_app_dist.
+    reflexivity.
+    all : (unfold zero, sum; apply functional_extensionality; reflexivity).
+
+- eapply wf_emp; auto.
+  rewrite HG in HG0.
+  rewrite HM in HG0.
+  assert (zero m0 ≡[m0] G0). 
+  { specialize (ctxt_zero_app_inv_r _ _ _ _ HG0); auto. }
+  assert (zero m' ≡[m'] G'). 
+  { specialize (ctxt_zero_app_inv_l _ _ _ _ HG0); auto. }
+  rewrite <- H.
+  rewrite <- H0.
+  repeat rewrite ctxt_app_zero_zero.
+  reflexivity.
+
+- eapply wf_tup; auto.
+  rewrite HG in HG0.
+  rewrite HM in HG0.
+  assert (zero m0 ≡[m0] G0). 
+  { specialize (ctxt_zero_app_inv_r _ _ _ _ HG0); auto. }
+  assert (zero m' ≡[m'] G'). 
+  { specialize (ctxt_zero_app_inv_l _ _ _ _ HG0); auto. }
+  rewrite <- H.
+  rewrite <- H0.
+  repeat rewrite ctxt_app_zero_zero.
+  reflexivity.
+  
+- eapply wf_bng; auto.
+  + unfold weaken_ren.
+    lia_goal.
+  + rewrite HG in HG0.
+    rewrite HM in HG0.
+    symmetry.
+    unfold weaken_ren.
+    destruct (lt_dec f m').
+    * unfold one, delta, ctxt_eq, ctxt_app, zero in *;
+      intros x Hx; destruction.
+      all : try (specialize (HG0 x);
+                 assert (x < m' + m0) by lia; apply HG0 in H;
+                 lia_destruct).
+      specialize (HG0 (x - m''));
+      assert (x - m'' < m' + m0) by lia; apply HG0 in H;
+      lia_destruct.
+      replace (x - (m' + m'')) with (x - m'' - m') by lia;
+      assumption.
+    * unfold one, delta, ctxt_eq, ctxt_app, zero in *;
+      intros x Hx; destruction.
+      all : try (specialize (HG0 x);
+                 assert (x < m' + m0) by lia; apply HG0 in H;
+                 lia_destruct).
+      all : try (specialize (HG0 (x - m''));
+                 assert (x - m'' < m' + m0) by lia; apply HG0 in H;
+                 lia_destruct;
+                 replace (x - (m' + m'')) with (x - m'' - m') by lia;
+                 assumption). 
+    
+- rewrite HG in HG0.
+  rewrite HM in HG0.
+  assert (zero m0 ≡[m0] G0). 
+  { specialize (ctxt_zero_app_inv_r _ _ _ _ HG0); auto. }
+  assert (zero m' ≡[m'] G').
+  { specialize (ctxt_zero_app_inv_l _ _ _ _ HG0); auto. }
+  rewrite <- H0.
+  rewrite <- H1.
+  eapply wf_lam; auto.
+  + repeat rewrite ctxt_app_zero_zero.
+    reflexivity.
+  + assert (zero (m' + m'' + m0) ≡[m' + m'' + m0] ((G' ⊗ (zero m'')) ⊗ G0)).
+    { rewrite <- H1. rewrite <- H0. 
+      repeat rewrite ctxt_app_zero_zero.
+      reflexivity. }
+    rewrite H2.
+    eapply H; auto.
+    rewrite HM.
+    assumption.
+Qed.    
 
 Lemma weak_rvar_oper :
   forall m n0 (G : lctxt m) (D0 : lctxt n0) (o:oper),
