@@ -2935,6 +2935,18 @@ Definition weaken_ren (m m' m'' : nat) : ren (m' + m) (m' + m'' + m) :=
 Definition weaken_f m m' m'' (P : proc) : proc :=
   rename_fvar_proc (weaken_ren m m' m'') P.
 
+Lemma ren_shift_weaken_commute : 
+forall (m' m0 m1 m2 : nat),
+  ren_shift m' (weaken_ren m0 m1 m2) =
+  weaken_ren m0 (m' + m1) m2.
+Proof.
+  intros.
+  apply functional_extensionality.
+  intros x.
+  unfold ren_shift, weaken_ren, ctxt_app, ren_id.
+  lia_goal.
+Qed.  
+
 Lemma wf_weaken_f_wpo :
   (forall m0 n (G0 : lctxt m0) (D : lctxt n) (t : term),
     wf_term m0 n G0 D t ->
@@ -2966,6 +2978,12 @@ apply wf_tpo_ind; intros; simpl.
   specialize (H m0 (m' + m'0) m'' G0 (@ctxt_app _ m' m0 G' G'0)).
   assert (m' + m = m' + m'0 + m0) by lia. 
   apply H in H0.
+  rewrite ren_shift_ren_commute_str.
+  repeat rewrite <- Nat.add_assoc in H0.
+  repeat rewrite <- ctxt_app_assoc in H0.
+  repeat rewrite <- Nat.add_assoc.  
+  repeat rewrite <- ctxt_app_assoc.
+  apply H0.
   (*
   2 : { rewrite HG.
         replace (m' + m) with (m' + (m'0 + m0)) by lia.
@@ -3086,9 +3104,26 @@ Lemma weak_rvar_proc :
     wf_proc m n0 G D0 P ->
     forall n n' n'' (D : lctxt n) (D' : lctxt n')
       (HN : n0 = n' + n)
-      (HD : D ≡[n0] (@ctxt_app _ n' n D' D)),
+      (HD0 : D0 ≡[n0] (@ctxt_app _ n' n D' D)),
       wf_proc m (n' + n'' + n) G (D' ⊗ zero n'' ⊗ D) (rename_rvar_proc (weaken_ren n n' n'') P).
 Proof.
+  intros; induction P.
+  - inversion H; existT_eq; subst.
+    inversion WFO; existT_eq; subst.
+    all : (unfold weaken_ren, rename_rvar_proc).
+    + eapply wf_def with (D := ((D' ⊗ zero n'') ⊗ D)) (D' := D'0).
+      destruction; try lia.
+      unfold ctxt_app, zero, ctxt_eq, one, delta, sum in *.
+      intros x Hx; destruction.
+      all : try (specialize (HD0 x); specialize (HD x);
+                 assert (l' : x < n' + n) by lia;
+                 assert (l'' : x < n' + n) by lia;
+                 apply HD0 in l'; apply HD in l'';
+                 lia_destruct).
+      
+
+      apply weak_rvar_oper.
+
 Admitted.
 
 
