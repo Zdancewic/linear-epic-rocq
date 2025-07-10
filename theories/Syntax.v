@@ -2966,8 +2966,10 @@ apply wf_tpo_ind; intros; simpl.
   specialize (H m0 (m' + m'0) m'' G0 (@ctxt_app _ m' m0 G' G'0)).
   assert (m' + m = m' + m'0 + m0) by lia. 
   apply H in H0.
+  (*
   2 : { rewrite HG.
-        rewrite <- ctxt_app_assoc. 
+        replace (m' + m) with (m' + (m'0 + m0)) by lia.
+        repeat rewrite <- ctxt_app_assoc. 
         reflexivity. } 
   rewrite ren_shift_ren_commute_str.
   repeat rewrite <- Nat.add_assoc in H0.
@@ -2976,7 +2978,7 @@ apply wf_tpo_ind; intros; simpl.
   repeat rewrite <- ctxt_app_assoc.
   apply H0.
 
-- eapply wf_def with (D' := D'); auto.
+- eapply wf_def with (D' := D'); auto. *)
 Admitted.
 
 Lemma weak_rvar_oper :
@@ -2984,10 +2986,100 @@ Lemma weak_rvar_oper :
     wf_oper m n0 G D0 o ->
     forall n n' n'' (D : lctxt n) (D' : lctxt n')
       (HN : n0 = n' + n)
-      (HD : D ≡[n0] (@ctxt_app _ n' n D' D)),
+      (HD0 : D0 ≡[n0] (@ctxt_app _ n' n D' D)),
       wf_oper m (n' + n'' + n) G (D' ⊗ zero n'' ⊗ D) (rename_rvar_oper (weaken_ren n n' n'') o).
 Proof.
-Admitted.
+  intros; induction o.
+  all : (unfold weaken_ren, rename_rvar_oper; simpl).
+  - inversion H; existT_eq; subst. 
+    apply wf_emp; auto. 
+    unfold ctxt_app, zero, ctxt_eq in *.
+    intros x Hx; destruction.
+    + specialize (HD0 x).
+      specialize (HD x).
+      assert (x < n' + n) by lia.
+      assert (x < n' + n) by lia.
+      apply HD0 in H0; apply HD in H1.
+      lia_destruct.
+    + specialize (HD0 (x - n'')).
+      specialize (HD (x - n'')).
+      assert (x - n'' < n' + n) by lia.
+      assert (x - n'' < n' + n) by lia.
+      apply HD0 in H0; apply HD in H1.
+      destruct (lt_dec (x - n'') n') in H0.
+      * contradict n0; lia.
+      * rewrite H0 in H1.
+        replace (x - (n' + n'')) with (x - n'' - n') by lia.
+        assumption.
+  - inversion H; existT_eq; subst. 
+    apply wf_tup; auto.
+    1, 2 : (destruction; lia).
+    unfold ctxt_app, zero, ctxt_eq, one, delta, sum in *.
+    intros x Hx; destruction.
+    all : (try lia_destruct).
+    all : (try (specialize (HD0 x); specialize (HD x); 
+                assert (l' : x < n' + n) by lia;
+                assert (l'' : x < n' + n) by lia;
+                apply HD0 in l'; apply HD in l'';
+                lia_destruct)).
+    all : (try (specialize (HD0 (x - n'')); specialize (HD (x - n'')); 
+                assert (l' : (x -  n'') < n' + n) by lia;
+                assert (l'' : (x - n'') < n' + n) by lia;
+                apply HD0 in l'; apply HD in l'';
+                lia_destruct;
+                rewrite l' in l'';
+                replace (x - (n' + n'')) with (x - n'' - n') by lia;
+                assumption)).
+    all : (try (specialize (HD0 (x - n'')); specialize (HD (x - n''));
+                assert (l' : (x -  n'') < n' + n) by lia;
+                assert (l'' : (x - n'') < n' + n) by lia;
+                apply HD0 in l'; apply HD in l'';
+                lia_destruct;
+                rewrite l'' in l';
+                replace (r2 + n'' - (n' + n'')) with (r2 + n'' - n'' - n') by lia;
+                symmetry; assumption)).
+  - inversion H; existT_eq; subst. 
+    apply wf_bng; auto.
+    unfold ctxt_app, zero, ctxt_eq in *.
+    intros x Hx; destruction.
+    + specialize (HD0 x).
+      specialize (HD x).
+      assert (x < n' + n) by lia.
+      assert (x < n' + n) by lia.
+      apply HD0 in H0; apply HD in H1.
+      lia_destruct.
+    + specialize (HD0 (x - n'')).
+      specialize (HD (x - n'')).
+      assert (x - n'' < n' + n) by lia.
+      assert (x - n'' < n' + n) by lia.
+      apply HD0 in H0; apply HD in H1.
+      destruct (lt_dec (x - n'') n') in H0.
+      * contradict n0; lia.
+      * rewrite H0 in H1.
+        replace (x - (n' + n'')) with (x - n'' - n') by lia.
+        assumption.
+  - inversion H; existT_eq; subst.
+    apply wf_lam; auto.
+    unfold ctxt_app, zero, ctxt_eq in *.
+    intros x Hx; destruction.
+    + specialize (HD0 x).
+      specialize (HD x).
+      assert (x < n' + n) by lia.
+      assert (x < n' + n) by lia.
+      apply HD0 in H0; apply HD in H1.
+      lia_destruct.
+    + specialize (HD0 (x - n'')).
+      specialize (HD (x - n'')).
+      assert (x - n'' < n' + n) by lia.
+      assert (x - n'' < n' + n) by lia.
+      apply HD0 in H0; apply HD in H1.
+      destruct (lt_dec (x - n'') n') in H0.
+      * contradict n0; lia.
+      * rewrite H0 in H1.
+        replace (x - (n' + n'')) with (x - n'' - n') by lia.
+        assumption.
+Qed.
+
 
 Lemma weak_rvar_proc :
   forall m n0 (G : lctxt m) (D0 : lctxt n0) (P:proc),
