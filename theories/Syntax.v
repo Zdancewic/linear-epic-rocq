@@ -2961,8 +2961,23 @@ Lemma wf_weaken_f_wpo :
           wf_oper (m' + m'' + m) n (G' ⊗ zero m'' ⊗ G) D
             (rename_fvar_oper (weaken_ren m m' m'') o)).
 Proof.
-  (* TODO : Should be similar to the commute one above. *)
-Admitted.    
+apply wf_tpo_ind; intros; simpl.
+- eapply wf_bag with (G' := G') (D' := D'); try assumption.
+  specialize (H m0 (m' + m'0) m'' G0 (@ctxt_app _ m' m0 G' G'0)).
+  assert (m' + m = m' + m'0 + m0) by lia. 
+  apply H in H0.
+  2 : { rewrite HG.
+        rewrite <- ctxt_app_assoc. 
+        reflexivity. } 
+  rewrite ren_shift_ren_commute_str.
+  repeat rewrite <- Nat.add_assoc in H0.
+  repeat rewrite <- ctxt_app_assoc in H0.
+  repeat rewrite <- Nat.add_assoc.  
+  repeat rewrite <- ctxt_app_assoc.
+  apply H0.
+
+- eapply wf_def with (D' := D'); auto.
+Admitted.
 
 Lemma weak_rvar_oper :
   forall m n0 (G : lctxt m) (D0 : lctxt n0) (o:oper),
