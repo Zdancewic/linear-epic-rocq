@@ -3208,6 +3208,16 @@ Proof.
         assumption.
 Qed.
 
+Lemma app_zero_0 : 
+  forall n (G : lctxt n),
+  G ≡[n] (@ctxt_app _ n 0 G (zero 0)).
+Proof. 
+  intros.
+  unfold ctxt_app, zero; intros x Hx; destruct (lt_dec x n).
+  reflexivity. 
+  try lia.
+Qed. 
+
 
 Lemma weak_rvar_proc :
   forall m n0 (G : lctxt m) (D0 : lctxt n0) (P:proc),
@@ -3218,22 +3228,36 @@ Lemma weak_rvar_proc :
       wf_proc m (n' + n'' + n) G (D' ⊗ zero n'' ⊗ D) (rename_rvar_proc (weaken_ren n n' n'') P).
 Proof.
   intros; induction P.
-  - inversion H; existT_eq; subst.
-    inversion WFO; existT_eq; subst.
-    all : (unfold weaken_ren, rename_rvar_proc).
-    + eapply wf_def with (D := ((D' ⊗ zero n'') ⊗ D)) (D' := D'0).
+  all : (unfold weaken_ren, rename_rvar_oper; simpl;
+         inversion H; existT_eq; subst).
+  - inversion WFO; existT_eq; subst.
+    + eapply wf_def with (D := ((D' ⊗ zero n'') ⊗ D)) (D' := (@ctxt_app _ (n' + n'') n ((zero n') ⊗ (zero n'')) (zero n))).
       destruction; try lia.
+      2 : { apply weak_rvar_oper with (n0 := n' + n) (D0 := D'0); try assumption.
+            reflexivity. 
+            rewrite -> ctxt_app_zero_zero; assumption. }
       unfold ctxt_app, zero, ctxt_eq, one, delta, sum in *.
-      intros x Hx; destruction.
-      all : try (specialize (HD0 x); specialize (HD x);
+      intros x Hx.
+      destruction; try lia.
+      all : try (specialize (HD0 x); specialize (HD x); specialize (HD1 x);
                  assert (l' : x < n' + n) by lia;
                  assert (l'' : x < n' + n) by lia;
-                 apply HD0 in l'; apply HD in l'';
+                 assert (l''' : x < n' + n) by lia;
+                 apply HD0 in l'; apply HD in l''; apply HD1 in l''';
                  lia_destruct).
+       all : try (specialize (HD0 (x - n'')); specialize (HD (x - n'')); specialize (HD1 (x - n''));
+                 assert (l' : (x - n'') < n' + n) by lia;
+                 assert (l'' : (x - n'') < n' + n) by lia;
+                 assert (l''' : (x - n'') < n' + n) by lia;
+                 apply HD0 in l'; apply HD in l''; apply HD1 in l''';
+                 lia_destruct;
+                 rewrite l''' in l''; rewrite l'' in l'; symmetry in l'; 
+                 replace (x - (n' + n'')) with (x - n'' - n') by lia; try assumption).
+    + eapply wf_def with (D := ((D' ⊗ zero n'') ⊗ D)) (D' := (@ctxt_app _ (n' + n + n'') 0 (@ctxt_app _ (n' + n) n'' D'0 (zero n'')) (zero 0))).
+      unfold weaken_ren; destruction; try lia.
+      unfold ctxt_app, zero, ctxt_eq, one, delta, sum in *.
+      intros x Hx; destruction; try lia.
       
-
-      apply weak_rvar_oper.
-
 Admitted.
 
 
