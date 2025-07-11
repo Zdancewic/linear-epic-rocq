@@ -3257,7 +3257,12 @@ Proof.
       unfold weaken_ren; destruction; try lia.
       unfold ctxt_app, zero, ctxt_eq, one, delta, sum in *.
       intros x Hx; destruction; try lia.
-      
+      (* Not sure how to manipulate the contexts here to apply wf_def (and later weak_rvar_oper). 
+        The issue seems to be writing a sum of one contexts as a product of contexts where the respective
+        context sizes still line up in a way that is amenable to using weak_rvar_oper (i.e., splitting into
+        an lctxt n' and lctxt n). I have tried several combinations of one/zero contexts, but the sizing never
+        lines up appropriately. I've also tried playing around with the proof state (e.g., rearranging the inversion calls/unfolding definitions in 
+        different orders.) *)
 Admitted.
 
 
