@@ -3251,7 +3251,7 @@ Qed.
   
 
 Lemma weak_rvar_proc :
-  forall m n0 (G : lctxt m) (D0 : lctxt n0) (P:proc),
+  forall m n0 (G : lctxt m) (D0 : lctxt n0) (P : proc),
     wf_proc m n0 G D0 P ->
     forall n n' n'' (D : lctxt n) (D' : lctxt n')
       (HN : n0 = n' + n)
@@ -3336,7 +3336,6 @@ Proof.
     rewrite HD; rewrite HD2.
     reflexivity.
     destruct Hr1' as [contra Hr]; try lia.
-
     destruct H as [H' | H]; try lia.
     destruct H as [n0' H]. 
     rewrite H in HD; rewrite HD0 in HD.
@@ -3353,44 +3352,22 @@ Proof.
     rewrite HD; rewrite HD2.
     reflexivity.
 
-  - 
+  - specialize (sum_app_inv_ctxt n' n D1 D2 D' D) as H.
+    rewrite HD0 in HD.
+    assert (H' : (@ctxt_app _ n' n D' D) ≡[ n' + n] D1 ⨥ D2) by (apply HD).
+    apply H in H'; clear H.
+    destruct H' as (Da1 & Da2 & Db1 & Db2 & HD1 & HD2 & HDa & HDb).
+    eapply wf_par with (G1 := G1) (G2 := G2)
+                       (D1 := (@ctxt_app _ (n' + n'') n (Da1 ⊗ (zero n'')) Db1))
+                       (D2 := (@ctxt_app _ (n' + n'') n (Da2 ⊗ (zero n'')) Db2));
+    try assumption.
+    3 : { repeat (rewrite -> lctxt_sum_app_dist).
+          rewrite -> sum_zero_r.
+          rewrite HDa; rewrite HDb.
+          reflexivity. }
     
-
-  (*
-  
-  - inversion WFO; existT_eq; subst.
-    + eapply wf_def with (D := ((D' ⊗ zero n'') ⊗ D)) (D' := (@ctxt_app _ (n' + n'') n ((zero n') ⊗ (zero n'')) (zero n))).
-      destruction; try lia.
-      2 : { apply weak_rvar_oper with (n0 := n' + n) (D0 := D'0); try assumption.
-            reflexivity. 
-            rewrite -> ctxt_app_zero_zero; assumption. }
-      unfold ctxt_app, zero, ctxt_eq, one, delta, sum in *.
-      intros x Hx.
-      destruction; try lia.
-      all : try (specialize (HD0 x); specialize (HD x); specialize (HD1 x);
-                 assert (l' : x < n' + n) by lia;
-                 assert (l'' : x < n' + n) by lia;
-                 assert (l''' : x < n' + n) by lia;
-                 apply HD0 in l'; apply HD in l''; apply HD1 in l''';
-                 lia_destruct).
-       all : try (specialize (HD0 (x - n'')); specialize (HD (x - n'')); specialize (HD1 (x - n''));
-                 assert (l' : (x - n'') < n' + n) by lia;
-                 assert (l'' : (x - n'') < n' + n) by lia;
-                 assert (l''' : (x - n'') < n' + n) by lia;
-                 apply HD0 in l'; apply HD in l''; apply HD1 in l''';
-                 lia_destruct;
-                 rewrite l''' in l''; rewrite l'' in l'; symmetry in l'; 
-                 replace (x - (n' + n'')) with (x - n'' - n') by lia; try assumption).
-    + eapply wf_def with (D := ((D' ⊗ zero n'') ⊗ D)) (D' := (@ctxt_app _ (n' + n + n'') 0 (@ctxt_app _ (n' + n) n'' D'0 (zero n'')) (zero 0))).
-      unfold weaken_ren; destruction; try lia.
-      unfold ctxt_app, zero, ctxt_eq, one, delta, sum in *.
-      intros x Hx; destruction; try lia.
-       Not sure how to manipulate the contexts here to apply wf_def (and later weak_rvar_oper). 
-        The issue seems to be writing a sum of one contexts as a product of contexts where the respective
-        context sizes still line up in a way that is amenable to using weak_rvar_oper (i.e., splitting into
-        an lctxt n' and lctxt n). I have tried several combinations of one/zero contexts, but the sizing never
-        lines up appropriately. I've also tried playing around with the proof state (e.g., rearranging the inversion calls/unfolding definitions in 
-        different orders.) *)
+    
+    
 Admitted.
 
 
@@ -3474,10 +3451,7 @@ Proof.
 
   (*   - todo here: deal with the linear contexts 
   *)
-  eapply wf_bag with (G := G) 
-                     (G' := (G01 ⊗ (zero m'') ⊗ G02) ⨥ (G41 ⊗ (zero m'') ⊗ G42) ⨥ (G51 ⊗ (zero m'') ⊗ G52) ⨥ (G2 ⊗ (zero m''))) 
-                     (D := (zero n)) 
-                     (D' := D').
+
   
   (* Next: deal with the freshened body of Q *)
   
