@@ -3218,6 +3218,37 @@ Proof.
   try lia.
 Qed. 
 
+Lemma ctxt_app_split : forall m n (G : lctxt (m + n)),
+  exists (G1 : lctxt m) (G2 : lctxt n),
+    G ≡[m + n] G1 ⊗ G2.
+Proof.
+  intros.
+  exists (ctxt_trim m n G).
+  exists (ctxt_retract m n G).
+  rewrite (ctxt_app_trim_retract m n _ G) at 1.
+  reflexivity.
+Qed.  
+
+Lemma one_app_zero : 
+  forall n n' r,
+    r < n' + n -> 
+    (r < n' /\ ((one (n' + n) r) ≡[ n' + n] (one n' r) ⊗ (zero n)))
+    \/ ((~ r < n') /\ ((one (n' + n) r) ≡[ n' + n] (zero n') ⊗ (one n (r - n')))).
+Proof. 
+  intros.
+  destruct (lt_dec r n').
+  + left. 
+    unfold one, delta, ctxt_eq, ctxt_app.
+    split; try assumption. 
+    intros x Hx; destruction.
+    unfold zero; try lia.
+  + right.
+    unfold one, delta, ctxt_eq, ctxt_app.
+    split; try lia. 
+    intros x Hx; destruction.
+    unfold zero; try lia.
+Qed.
+  
 
 Lemma weak_rvar_proc :
   forall m n0 (G : lctxt m) (D0 : lctxt n0) (P:proc),
@@ -3227,9 +3258,70 @@ Lemma weak_rvar_proc :
       (HD0 : D0 ≡[n0] (@ctxt_app _ n' n D' D)),
       wf_proc m (n' + n'' + n) G (D' ⊗ zero n'' ⊗ D) (rename_rvar_proc (weaken_ren n n' n'') P).
 Proof.
-  intros; induction P.
-  all : (unfold weaken_ren, rename_rvar_oper; simpl;
-         inversion H; existT_eq; subst).
+  intros m n0 G D0 P HP.
+  induction P; intros.
+  all : (simpl; inversion HP; existT_eq; subst).
+
+  - specialize (ctxt_app_split n' n D'0) as [D'01 [D'02 HEQD'0]].
+    specialize (one_app_zero n n' r) as H1r. 
+    assert (Hr : r< n' + n) by (apply HR).
+    apply H1r in Hr; clear H1r; destruct Hr as [Hr | Hr'].
+
+    + destruct Hr as [Hr Hr1].
+      rewrite Hr1 in HD; rewrite HEQD'0 in HD.
+      rewrite -> lctxt_sum_app_dist in HD.
+      eapply wf_def with (D := (@ctxt_app _ (n' + n'') n (D' ⊗ zero n'') D))
+                         (D' := (@ctxt_app _ (n' + n'') n (D'01 ⊗ (zero n'')) D'02)).
+      3 : { eapply weak_rvar_oper with (n0 := n' + n) (D0 := D'0).
+            all : (try assumption).
+            reflexivity. }
+      all : (unfold weaken_ren; destruct (lt_dec r n'); try lia).
+      assert (one (n' + n'' + n) r ≡[ n' + n'' + n] 
+              (@ctxt_app _ (n' + n'') n ((one n' r) ⊗ (zero n'')) (zero n))).
+      { unfold one, delta, ctxt_eq, ctxt_app, zero.
+        intros x Hx.
+        destruction; try lia. }
+      rewrite H; clear H.
+      repeat (rewrite -> lctxt_sum_app_dist).
+      rewrite HD0 in HD.
+      specialize (ctxt_app_inv_l_eq n' n D' (one n' r ⨥ D'01) D (zero n ⨥ D'02)) as HD1.
+      specialize (ctxt_app_inv_r_eq n' n D' (one n' r ⨥ D'01) D (zero n ⨥ D'02)) as HD1'.
+      assert (HD2 : (@ctxt_app _ n' n D' D) ≡[ n' + n] 
+                    (@ctxt_app _ n' n (one n' r ⨥ D'01) (zero n ⨥ D'02))) by apply HD.
+      apply HD1 in HD; clear HD1; apply HD1' in HD2; clear HD1'.
+      rewrite HD; rewrite HD2.
+      reflexivity.
+
+    + destruct Hr' as [Hr' Hr'1].
+      rewrite Hr'1 in HD; rewrite HEQD'0 in HD.
+      rewrite -> lctxt_sum_app_dist in HD.
+      eapply wf_def with (D := (@ctxt_app _ (n' + n'') n (D' ⊗ zero n'') D))
+                         (D' := (@ctxt_app _ (n' + n'') n (D'01 ⊗ (zero n'')) D'02)).
+      3 : { eapply weak_rvar_oper with (n0 := n' + n) (D0 := D'0).
+            all : (try assumption).
+            reflexivity. }
+      all : (unfold weaken_ren; destruct (lt_dec r n'); try lia).
+      assert (one (n' + n'' + n) (r + n'') ≡[ n' + n'' + n] 
+                  (@ctxt_app _ (n' + n'') n ((zero n') ⊗ (zero n'')) (one n (r - n')))).
+      { unfold one, delta, ctxt_eq, ctxt_app, zero.
+        intros x Hx.
+        destruction; try lia. }
+      rewrite H; clear H.
+      repeat (rewrite -> lctxt_sum_app_dist).
+      rewrite HD0 in HD.
+      specialize (ctxt_app_inv_l_eq n' n D' (zero n' ⨥ D'01) D (one n (r - n') ⨥ D'02)) as HD1.
+      specialize (ctxt_app_inv_r_eq n' n D' (zero n' ⨥ D'01) D (one n (r - n') ⨥ D'02)) as HD1'.
+      assert (HD2 : (@ctxt_app _ n' n D' D) ≡[ n' + n]  (zero n' ⨥ D'01) ⊗ (one n (r - n') ⨥ D'02)) by apply HD.
+      apply HD1 in HD; clear HD1; apply HD1' in HD2; clear HD1'.
+      rewrite HD; rewrite HD2.
+      reflexivity.
+
+  - 
+        
+    
+
+  (*
+  
   - inversion WFO; existT_eq; subst.
     + eapply wf_def with (D := ((D' ⊗ zero n'') ⊗ D)) (D' := (@ctxt_app _ (n' + n'') n ((zero n') ⊗ (zero n'')) (zero n))).
       destruction; try lia.
@@ -3257,7 +3349,7 @@ Proof.
       unfold weaken_ren; destruction; try lia.
       unfold ctxt_app, zero, ctxt_eq, one, delta, sum in *.
       intros x Hx; destruction; try lia.
-      (* Not sure how to manipulate the contexts here to apply wf_def (and later weak_rvar_oper). 
+       Not sure how to manipulate the contexts here to apply wf_def (and later weak_rvar_oper). 
         The issue seems to be writing a sum of one contexts as a product of contexts where the respective
         context sizes still line up in a way that is amenable to using weak_rvar_oper (i.e., splitting into
         an lctxt n' and lctxt n). I have tried several combinations of one/zero contexts, but the sizing never
@@ -3272,17 +3364,6 @@ Definition freshen_body m m' m'' (n:nat) n' n'' (r':nat) (Q:proc) :=
   let Q1 := rename_rvar_proc (weaken_ren (n'' + 1) 0 n') Q0 in
   let Q2 := @rename_rvar_proc (n' + (n'' + 1)) (n' + (n'' + 1)) (rename_var (n' + n'') r') Q1 in
   Q2.
-
-Lemma ctxt_app_split : forall m n (G : lctxt (m + n)),
-  exists (G1 : lctxt m) (G2 : lctxt n),
-    G ≡[m + n] G1 ⊗ G2.
-Proof.
-  intros.
-  exists (ctxt_trim m n G).
-  exists (ctxt_retract m n G).
-  rewrite (ctxt_app_trim_retract m n _ G) at 1.
-  reflexivity.
-Qed.  
 
 Lemma wf_prim_step_app :
 forall (m m' m'' n n' n'' : nat) (G : lctxt m) (r : rvar) (r' : var) (f : fvar) (P Q : proc),
@@ -3355,7 +3436,12 @@ Proof.
   assert (wf_proc (m' + m'' + m) (n' + n) (G51 ⊗ (zero m'') ⊗ G52) D5 (weaken_f m m' m'' (def r (bng f)))) as HWEAKBNG.
   { eapply wf_weaken_f_wpo; eauto. }
 
-  (*   - todo here: deal with the linear contexts *)
+  (*   - todo here: deal with the linear contexts 
+  *)
+  eapply wf_bag with (G := G) 
+                     (G' := (G01 ⊗ (zero m'') ⊗ G02) ⨥ (G41 ⊗ (zero m'') ⊗ G42) ⨥ (G51 ⊗ (zero m'') ⊗ G52) ⨥ (G2 ⊗ (zero m''))) 
+                     (D := (zero n)) 
+                     (D' := D').
   
   (* Next: deal with the freshened body of Q *)
   
