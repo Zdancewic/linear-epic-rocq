@@ -3264,7 +3264,7 @@ Proof.
 
   - specialize (ctxt_app_split n' n D'0) as [D'01 [D'02 HEQD'0]].
     specialize (one_app_zero n n' r) as H1r. 
-    assert (Hr : r< n' + n) by (apply HR).
+    assert (Hr : r < n' + n) by (apply HR).
     apply H1r in Hr; clear H1r; destruct Hr as [Hr | Hr'].
 
     + destruct Hr as [Hr Hr1].
@@ -3316,8 +3316,44 @@ Proof.
       rewrite HD; rewrite HD2.
       reflexivity.
 
+  - eapply wf_app with (D := (@ctxt_app _ (n' + n'') n (D' ⊗ zero n'') D)); try assumption.
+    unfold weaken_ren; destruct (lt_dec r n'); try lia.
+    specialize (one_app_zero n n' r) as Hr1. 
+    assert (r < n' + n) by lia; apply Hr1 in H; clear Hr1.
+    unfold weaken_ren; destruct (lt_dec r n'); try lia.
+    destruct H as [Hr1 | Hr1']. destruct Hr1 as [Hr1 Hr1'].
+    assert (one (n' + n'' + n) r ≡[ n' + n'' + n] 
+            (@ctxt_app _ (n' + n'') n ((one n' r) ⊗ (zero n'')) (zero n))).
+    { unfold one, delta, ctxt_eq, ctxt_app, zero.
+      intros x Hx.
+      destruction; try lia. }
+    rewrite H; clear H. 
+    rewrite Hr1' in HD; rewrite HD0 in HD.
+    specialize (ctxt_app_inv_l_eq n' n D' (one n' r) D (zero n)) as HD1.
+    specialize (ctxt_app_inv_r_eq n' n D' (one n' r) D (zero n)) as HD1'.
+    assert (HD2 : (@ctxt_app _ n' n D' D) ≡[ n' + n] (one n' r) ⊗ (zero n)) by (apply HD).
+    apply HD1 in HD; clear HD1; apply HD1' in HD2; clear HD1'.
+    rewrite HD; rewrite HD2.
+    reflexivity.
+    destruct Hr1' as [contra Hr]; try lia.
+
+    destruct H as [H' | H]; try lia.
+    destruct H as [n0' H]. 
+    rewrite H in HD; rewrite HD0 in HD.
+    assert (one (n' + n'' + n) (r + n'') ≡[ n' + n'' + n] 
+                  (@ctxt_app _ (n' + n'') n ((zero n') ⊗ (zero n'')) (one n (r - n')))).
+    { unfold one, delta, ctxt_eq, ctxt_app, zero.
+      intros x Hx.
+      destruction; try lia. }
+    rewrite H0; clear H0.
+    specialize (ctxt_app_inv_l_eq n' n D' (zero n') D (one n (r - n'))) as HD1.
+    specialize (ctxt_app_inv_r_eq n' n D' (zero n') D (one n (r - n'))) as HD1'.
+    assert (HD2 : (@ctxt_app _ n' n D' D) ≡[ n' + n]  (zero n') ⊗ (one n (r - n'))) by apply HD.
+    apply HD1 in HD; clear HD1; apply HD1' in HD2; clear HD1'.
+    rewrite HD; rewrite HD2.
+    reflexivity.
+
   - 
-        
     
 
   (*
