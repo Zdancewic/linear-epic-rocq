@@ -3412,6 +3412,20 @@ Definition freshen_body m m' m'' (n:nat) n' n'' (r':nat) (Q:proc) :=
   let Q2 := @rename_rvar_proc (n' + (n'' + 1)) (n' + (n'' + 1)) (rename_var (n' + n'') r') Q1 in
   Q2.
 
+Lemma wf_freshen : 
+forall m m' m'' n n' n'' (G'' : lctxt m'') (D'' : lctxt n'') (Q : proc),
+  (wf_proc (m'' + (m' + m)) (n'' + 1) (@ctxt_app _ m'' (m' + m) G'' (zero (m' + m))) 
+           (@ctxt_app _ n'' 1 D'' (1 [0 ↦ 1])) Q) -> 
+    forall (G : lctxt m) (G' : lctxt m') (D' : lctxt n') (r' : var),
+    (wf_proc (m' + m'' + m) (n' + (n'' + 1) + n) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' G' (zero m'')) G)
+             (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) D' (zero (n'' + 1))) (zero n)) 
+             (freshen_body m m' m'' n n' n'' r' Q)).
+Proof.
+  intros.
+  unfold freshen_body.
+
+Admitted.
+
 Lemma wf_prim_step_app :
 forall (m m' m'' n n' n'' : nat) (G : lctxt m) (r : rvar) (r' : var) (f : fvar) (P Q : proc),
   wf_term m n G (zero n)
@@ -3483,8 +3497,7 @@ Proof.
   assert (wf_proc (m' + m'' + m) (n' + n) (G51 ⊗ (zero m'') ⊗ G52) D5 (weaken_f m m' m'' (def r (bng f)))) as HWEAKBNG.
   { eapply wf_weaken_f_wpo; eauto. }
 
-  (*   - todo here: deal with the linear contexts *)
-
+  (* rearrange linear contexts *)
   specialize (ctxt_app_split n' n D0) as [D01 [D02 HEQD0]].
   specialize (ctxt_app_split n' n D3) as [D31 [D32 HEQD3]].
   specialize (ctxt_app_split n' n D2) as [D21 [D22 HEQD2]].
@@ -3508,6 +3521,7 @@ Proof.
   assert (HD42 : D42 ≡[ n] zero n) by (apply sum_zero_inv_l_eq in HEQD3; assumption).
   assert (HD52 : D52 ≡[ n] zero n) by (apply sum_zero_inv_r_eq in HEQD3; assumption).
 
+  (* wf_proc P *)
   assert (wf_proc (m' + m'' + m) ((n' + (n'' + 1)) + n) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' G01 (zero m'')) G02) 
                   (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) D01 (zero (n'' + 1))) D02) 
                   (weaken_f m m' m'' P)) as HP.
@@ -3531,6 +3545,7 @@ Proof.
     rewrite H3 in HWEAKP. 
     replace (m' + m'' + m + 0) with (m' + m'' + m) in HWEAKP by lia; try assumption. }
   
+  (* wf_proc lam *)
   assert (wf_proc (m' + m'' + m) ((n' + (n'' + 1)) + n) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' G41 (zero m'')) G42) 
                 (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) D41 (zero (n'' + 1))) D42) 
                 (weaken_f m m' m'' (def r (lam (bag m'' n'' Q))))) as HLAM.
@@ -3554,6 +3569,7 @@ Proof.
     rewrite H3 in HWEAKLAM. 
     replace (m' + m'' + m + 0) with (m' + m'' + m) in HWEAKLAM by lia; try assumption. }
   
+  (* wf_proc bng *)
   assert (wf_proc (m' + m'' + m) ((n' + (n'' + 1)) + n) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' G51 (zero m'')) G52) 
                 (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) D51 (zero (n'' + 1))) D52) 
                 (weaken_f m m' m'' (def r (bng f)))) as HBNG.
@@ -3578,25 +3594,20 @@ Proof.
     replace (m' + m'' + m + 0) with (m' + m'' + m) in HWEAKBNG by lia; try assumption. }
   
   (* Next: deal with the freshened body of Q *)
+
   inversion WFP1; existT_eq; subst. clear WFP1.
   inversion WFO; existT_eq; subst. clear WFO.
   inversion WFT; existT_eq; subst. clear WFT.
+
   assert (wf_proc (m' + m'' + m) ((n' + (n'' + 1)) + n) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' G' (zero m'')) G) 
                 (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) D' (zero (n'' + 1))) (zero n)) 
                 (freshen_body m m' m'' n n' n'' r' Q)).
-  {  }
-  
-  (*
-    eapply wf_bag with (G' := (@ctxt_app _ m' m'' (G01 ⨥ G41 ⨥ G51) (zero m''))) 
-                     (D' := (@ctxt_app _ n' n'' (D01 ⨥ D41 ⨥ D51) (zero n''))).
-    intros x Hx. assert (zero m'' = (zero m'' ⨥ zero m''⨥ zero m'')).
-    unfold zero, sum; apply functional_extensionality; intros x0; destruction; reflexivity.
-    rewrite H2; clear H2.
-    repeat rewrite <- lctxt_sum_app_dist. 
+
+  (* no wf_bag yet (& incorrect choices of G', D' here)
+    eapply wf_bag with (G' := (@ctxt_app _ m' m'' G' (zero m'')))
+                     (D' := (@ctxt_app _ n' (n'' + 1) D' (zero (n'' + 1)))).
   *)
 Admitted.  
-
-
 
 
 (*
