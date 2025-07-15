@@ -2449,6 +2449,20 @@ apply wf_tpo_ind; intros.
   rewrite H0 in H; clear H0; try assumption.
 Qed.
 
+Lemma wf_proc_app_zero :
+  (forall (m n:nat)
+        (G : lctxt m)
+        (D : lctxt n)
+        (P : proc), 
+          wf_proc m n G D P ->
+          forall (m' n' : nat),
+            wf_proc (m + m') (n + n') 
+            (@ctxt_app _ m m' G (zero m'))
+            (@ctxt_app _ n n' D (zero n')) P).
+Proof.
+  apply wf_app_zero.
+Qed.
+
 (* This version of renaming takes a variable in context
 
   G0 ⊗ (G1 ⊗ G2) ⊗ G3
@@ -3370,7 +3384,15 @@ Proof.
     
 Admitted.
 
-
+Lemma zeros_commute :
+  forall n m,
+    (@ctxt_app _ n m (zero n) (zero m)) = (@ctxt_app _ m n (zero m) (zero n)).
+Proof.
+  intros.
+  unfold zero, ctxt_app. 
+  apply functional_extensionality.
+  intros x; destruction.
+Qed.
 
 Definition freshen_body m m' m'' (n:nat) n' n'' (r':nat) (Q:proc) :=
   let Q0 := rename_fvar_proc (ren_commute_str 0 m m' m'') Q in
@@ -3449,9 +3471,33 @@ Proof.
   assert (wf_proc (m' + m'' + m) (n' + n) (G51 ⊗ (zero m'') ⊗ G52) D5 (weaken_f m m' m'' (def r (bng f)))) as HWEAKBNG.
   { eapply wf_weaken_f_wpo; eauto. }
 
-  (*   - todo here: deal with the linear contexts 
-  *)
+  (*   - todo here: deal with the linear contexts *)
 
+  specialize (ctxt_app_split n' n D0) as [D01 [D02 HEQD0]].
+  specialize (ctxt_app_split n' n D3) as [D31 [D32 HEQD3]].
+  specialize (ctxt_app_split n' n D2) as [D21 [D22 HEQD2]].
+  rewrite HD0 in HD; rewrite HEQD0 in HD.
+  rewrite HEQD3 in HD; rewrite HEQD2 in HD.
+  repeat rewrite -> lctxt_sum_app_dist in HD.
+  specialize (ctxt_app_inv_r_eq n' n D' ((D01 ⨥ D31) ⨥ D21) (zero n) ((D02 ⨥ D32) ⨥ D22)) as H0.
+  apply H0 in HD; symmetry in HD.
+  assert ((D02 ⨥ D32) ⨥ D22 ≡[ n] zero n) by apply HD.
+  specialize (sum_zero_inv_r_eq n (D02 ⨥ D32) D22) as HD22; apply HD22 in HD; clear HD22.
+  specialize (sum_zero_inv_l_eq n (D02 ⨥ D32) D22) as H0232; apply H0232 in H; clear H0232.
+  assert (D02 ⨥ D32 ≡[ n] zero n) by (apply H).
+  specialize (sum_zero_inv_r_eq n D02 D32) as H32; apply H32 in H; clear H32.
+  specialize (sum_zero_inv_l_eq n D02 D32) as H02; apply H02 in H1; clear H02.
+
+  assert (wf_proc (m' + m'' + m) ((n' + (n'' + 1)) + n) (G01 ⊗ (zero m'') ⊗ G02) 
+                  (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) D01 (zero (n'' + 1))) D02) 
+                  (weaken_f m m' m'' P)) as HP.
+  { rewrite H1; rewrite <- ctxt_app_assoc with (c := D01).
+    rewrite -> zeros_commute with (n := n'' + 1) (m := n).
+    replace (n' + (n'' + 1) + n) with (n' + (n + (n'' + 1))) by lia.
+    rewrite -> ctxt_app_assoc.
+    rewrite HEQD0 in HWEAKP; rewrite H1 in HWEAKP.
+    apply wf_proc_app_zero. }
+  
   
   (* Next: deal with the freshened body of Q *)
   
