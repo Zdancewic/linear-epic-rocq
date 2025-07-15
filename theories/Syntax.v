@@ -3488,15 +3488,28 @@ Proof.
   specialize (sum_zero_inv_r_eq n D02 D32) as H32; apply H32 in H; clear H32.
   specialize (sum_zero_inv_l_eq n D02 D32) as H02; apply H02 in H1; clear H02.
 
-  assert (wf_proc (m' + m'' + m) ((n' + (n'' + 1)) + n) (G01 ⊗ (zero m'') ⊗ G02) 
+  assert (wf_proc (m' + m'' + m) ((n' + (n'' + 1)) + n) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' G01 (zero m'')) G02) 
                   (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) D01 (zero (n'' + 1))) D02) 
                   (weaken_f m m' m'' P)) as HP.
-  { rewrite H1; rewrite <- ctxt_app_assoc with (c := D01).
-    rewrite -> zeros_commute with (n := n'' + 1) (m := n).
-    replace (n' + (n'' + 1) + n) with (n' + (n + (n'' + 1))) by lia.
-    rewrite -> ctxt_app_assoc.
+  { rewrite H1.
+    assert ((@ctxt_app _ (n' + (n'' + 1)) n (D01 ⊗ (zero (n'' + 1))) (zero n)) ≡[(n' + (n'' + 1)) + n]
+            (@ctxt_app _ n' (n + (n'' + 1)) D01 ((zero n) ⊗ (zero (n'' + 1))))).
+    { rewrite <- ctxt_app_assoc.
+      rewrite -> zeros_commute with (n := n'' + 1) (m := n).
+      reflexivity. }
+    rewrite H2.
+    rewrite -> ctxt_app_assoc with (c := D01) (d := (zero n)) (e := (zero (n'' + 1))).
     rewrite HEQD0 in HWEAKP; rewrite H1 in HWEAKP.
-    apply wf_proc_app_zero. }
+    replace (n' + (n'' + 1) + n) with ((n' + n) + (n'' + 1)) by lia.
+    specialize (wf_proc_app_zero (m' + m'' + m) (n' + n)
+                                 (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' G01 (zero m'')) G02)
+                                 (@ctxt_app _ n' n D01 (zero n)) (weaken_f m m' m'' P)) as HP.
+    apply HP with (m' := 0) (n' := n'' + 1) in HWEAKP; clear HP.
+    assert ((@ctxt_app _ (m' + m'' + m) 0 (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' G01 (zero m'')) G02) (zero 0)) 
+            ≡[m' + m'' + m + 0] (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' G01 (zero m'')) G02)).
+    symmetry; replace (m' + m'' + m + 0) with (m' + m'' + m) by lia; apply app_zero_0.
+    rewrite H3 in HWEAKP. 
+    replace (m' + m'' + m + 0) with (m' + m'' + m) in HWEAKP by lia; try assumption. }
   
   
   (* Next: deal with the freshened body of Q *)
