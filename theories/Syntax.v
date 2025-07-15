@@ -3511,6 +3511,40 @@ Proof.
     rewrite H3 in HWEAKP. 
     replace (m' + m'' + m + 0) with (m' + m'' + m) in HWEAKP by lia; try assumption. }
   
+  specialize (ctxt_app_split n' n D4) as [D41 [D42 HEQD4]].
+  specialize (ctxt_app_split n' n D5) as [D51 [D52 HEQD5]].
+  rewrite HD1 in HEQD3; rewrite H in HEQD3; rewrite HEQD4 in HEQD3; rewrite HEQD5 in HEQD3.
+  rewrite -> lctxt_sum_app_dist in HEQD3.
+  specialize (ctxt_app_inv_r_eq n' n (D41 ⨥ D51) D31 (D42 ⨥ D52) (zero n)) as H'.
+  apply H' in HEQD3; clear H'.
+  assert (HD42 : D42 ≡[ n] zero n) by (apply sum_zero_inv_l_eq in HEQD3; assumption).
+  assert (HD52 : D52 ≡[ n] zero n) by (apply sum_zero_inv_r_eq in HEQD3; assumption).
+  assert (wf_proc (m' + m'' + m) ((n' + (n'' + 1)) + n) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' G41 (zero m'')) G42) 
+                (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) D41 (zero (n'' + 1))) D42) 
+                (weaken_f m m' m'' (def r (lam (bag m'' n'' Q))))) as HLAM.
+  { rewrite HD42. 
+    assert ((@ctxt_app _ (n' + (n'' + 1)) n (D41 ⊗ (zero (n'' + 1))) (zero n)) ≡[(n' + (n'' + 1)) + n]
+            (@ctxt_app _ n' (n + (n'' + 1)) D41 ((zero n) ⊗ (zero (n'' + 1))))).
+    { rewrite <- ctxt_app_assoc.
+      rewrite -> zeros_commute with (n := n'' + 1) (m := n).
+      reflexivity. }
+    rewrite H2.
+    rewrite -> ctxt_app_assoc with (c := D41) (d := (zero n)) (e := (zero (n'' + 1))).
+    rewrite HEQD4 in HWEAKLAM; rewrite HD42 in HWEAKLAM.
+    replace (n' + (n'' + 1) + n) with ((n' + n) + (n'' + 1)) by lia.
+    specialize (wf_proc_app_zero (m' + m'' + m) (n' + n)
+                                (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' G41 (zero m'')) G42)
+                                (@ctxt_app _ n' n D41 (zero n)) (weaken_f m m' m'' (def r (lam (bag m'' n'' Q))))) as HLAM.
+    apply HLAM with (m' := 0) (n' := n'' + 1) in HWEAKLAM; clear HLAM.
+    assert ((@ctxt_app _ (m' + m'' + m) 0 (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' G41 (zero m'')) G42) (zero 0)) 
+            ≡[m' + m'' + m + 0] (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' G41 (zero m'')) G42)).
+    symmetry; replace (m' + m'' + m + 0) with (m' + m'' + m) by lia; apply app_zero_0.
+    rewrite H3 in HWEAKLAM. 
+    replace (m' + m'' + m + 0) with (m' + m'' + m) in HWEAKLAM by lia; try assumption. }
+  
+  assert (wf_proc (m' + m'' + m) ((n' + (n'' + 1)) + n) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' G51 (zero m'')) G52) 
+                (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) D51 (zero (n'' + 1))) D52) 
+                (weaken_f m m' m'' (def r (bng f)))) as HLAM.
   
   (* Next: deal with the freshened body of Q *)
   
