@@ -3270,13 +3270,17 @@ Lemma weak_rvar_proc :
     forall n n' n'' (D : lctxt n) (D' : lctxt n')
       (HN : n0 = n' + n)
       (HD0 : D0 ≡[n0] (@ctxt_app _ n' n D' D)),
-      wf_proc m (n' + n'' + n) G (D' ⊗ zero n'' ⊗ D) (rename_rvar_proc (weaken_ren n n' n'') P).
+      wf_proc m (n' + n'' + n) G (@ctxt_app _ (n' + n'') n (@ctxt_app _ n' n'' D' (zero n'')) D)
+                (rename_rvar_proc (weaken_ren n n' n'') P).
 Proof.
-  intros m n0 G D0 P HP.
-  induction P; intros.
-  all : (simpl; inversion HP; existT_eq; subst).
+  intros m n0 G D0 P.
+  revert m n0 G D0.
+  induction P. 
 
-  - specialize (ctxt_app_split n' n D'0) as [D'01 [D'02 HEQD'0]].
+  - intros m n0 G D0 HP n n' n'' D D'.
+    intros Hn0 HD0.
+    simpl; inversion HP; existT_eq; subst.
+    specialize (ctxt_app_split n' n D'0) as [D'01 [D'02 HEQD'0]].
     specialize (one_app_zero n n' r) as H1r. 
     assert (Hr : r < n' + n) by (apply HR).
     apply H1r in Hr; clear H1r; destruct Hr as [Hr | Hr'].
@@ -3330,7 +3334,10 @@ Proof.
       rewrite HD; rewrite HD2.
       reflexivity.
 
-  - eapply wf_app with (D := (@ctxt_app _ (n' + n'') n (D' ⊗ zero n'') D)); try assumption.
+  - intros m n0 G D0 HP n n' n'' D D'.
+    intros Hn0 HD0.
+    simpl; inversion HP; existT_eq; subst.
+    eapply wf_app with (D := (@ctxt_app _ (n' + n'') n (D' ⊗ zero n'') D)); try assumption.
     unfold weaken_ren; destruct (lt_dec r n'); try lia.
     specialize (one_app_zero n n' r) as Hr1. 
     assert (r < n' + n) by lia; apply Hr1 in H; clear Hr1.
@@ -3366,23 +3373,28 @@ Proof.
     rewrite HD; rewrite HD2.
     reflexivity.
 
-  - specialize (sum_app_inv_ctxt n' n D1 D2 D' D) as H.
+  - intros m n0 G D0 HP n n' n'' D D' Hn0 HD0.
+    inversion HP; existT_eq; subst.
+    specialize (sum_app_inv_ctxt n' n D1 D2 D' D) as H.
     rewrite HD0 in HD.
     assert (H' : (@ctxt_app _ n' n D' D) ≡[ n' + n] D1 ⨥ D2) by (apply HD).
     apply H in H'; clear H.
     destruct H' as (Da1 & Da2 & Db1 & Db2 & HD1 & HD2 & HDa & HDb).
+    specialize (IHP1 m (n' + n) G1 D1). 
+    eapply IHP1 with (n := n) (n' := n') (n'' := n'') (D' := Da1) (D := Db1) in WFP1; 
+    try assumption; try reflexivity.
+    specialize (IHP2 m (n' + n) G2 D2). 
+    eapply IHP2 with (n := n) (n' := n') (n'' := n'') (D' := Da2) (D := Db2) in WFP2; 
+    try assumption; try reflexivity.
     eapply wf_par with (G1 := G1) (G2 := G2)
                        (D1 := (@ctxt_app _ (n' + n'') n (Da1 ⊗ (zero n'')) Db1))
                        (D2 := (@ctxt_app _ (n' + n'') n (Da2 ⊗ (zero n'')) Db2));
     try assumption.
-    3 : { repeat (rewrite -> lctxt_sum_app_dist).
-          rewrite -> sum_zero_r.
-          rewrite HDa; rewrite HDb.
-          reflexivity. }
-    
-    
-    
-Admitted.
+    repeat (rewrite -> lctxt_sum_app_dist).
+    rewrite -> sum_zero_r.
+    rewrite HDa; rewrite HDb.
+    reflexivity. 
+Qed.
 
 Lemma zeros_commute :
   forall n m,
@@ -3487,6 +3499,14 @@ Proof.
   assert (D02 ⨥ D32 ≡[ n] zero n) by (apply H).
   specialize (sum_zero_inv_r_eq n D02 D32) as H32; apply H32 in H; clear H32.
   specialize (sum_zero_inv_l_eq n D02 D32) as H02; apply H02 in H1; clear H02.
+  specialize (ctxt_app_split n' n D4) as [D41 [D42 HEQD4]].
+  specialize (ctxt_app_split n' n D5) as [D51 [D52 HEQD5]].
+  rewrite HD1 in HEQD3; rewrite H in HEQD3; rewrite HEQD4 in HEQD3; rewrite HEQD5 in HEQD3.
+  rewrite -> lctxt_sum_app_dist in HEQD3.
+  specialize (ctxt_app_inv_r_eq n' n (D41 ⨥ D51) D31 (D42 ⨥ D52) (zero n)) as H'.
+  apply H' in HEQD3; clear H'.
+  assert (HD42 : D42 ≡[ n] zero n) by (apply sum_zero_inv_l_eq in HEQD3; assumption).
+  assert (HD52 : D52 ≡[ n] zero n) by (apply sum_zero_inv_r_eq in HEQD3; assumption).
 
   assert (wf_proc (m' + m'' + m) ((n' + (n'' + 1)) + n) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' G01 (zero m'')) G02) 
                   (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) D01 (zero (n'' + 1))) D02) 
@@ -3511,14 +3531,6 @@ Proof.
     rewrite H3 in HWEAKP. 
     replace (m' + m'' + m + 0) with (m' + m'' + m) in HWEAKP by lia; try assumption. }
   
-  specialize (ctxt_app_split n' n D4) as [D41 [D42 HEQD4]].
-  specialize (ctxt_app_split n' n D5) as [D51 [D52 HEQD5]].
-  rewrite HD1 in HEQD3; rewrite H in HEQD3; rewrite HEQD4 in HEQD3; rewrite HEQD5 in HEQD3.
-  rewrite -> lctxt_sum_app_dist in HEQD3.
-  specialize (ctxt_app_inv_r_eq n' n (D41 ⨥ D51) D31 (D42 ⨥ D52) (zero n)) as H'.
-  apply H' in HEQD3; clear H'.
-  assert (HD42 : D42 ≡[ n] zero n) by (apply sum_zero_inv_l_eq in HEQD3; assumption).
-  assert (HD52 : D52 ≡[ n] zero n) by (apply sum_zero_inv_r_eq in HEQD3; assumption).
   assert (wf_proc (m' + m'' + m) ((n' + (n'' + 1)) + n) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' G41 (zero m'')) G42) 
                 (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) D41 (zero (n'' + 1))) D42) 
                 (weaken_f m m' m'' (def r (lam (bag m'' n'' Q))))) as HLAM.
@@ -3544,14 +3556,44 @@ Proof.
   
   assert (wf_proc (m' + m'' + m) ((n' + (n'' + 1)) + n) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' G51 (zero m'')) G52) 
                 (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) D51 (zero (n'' + 1))) D52) 
-                (weaken_f m m' m'' (def r (bng f)))) as HLAM.
+                (weaken_f m m' m'' (def r (bng f)))) as HBNG.
+  { rewrite HD52. 
+    assert ((@ctxt_app _ (n' + (n'' + 1)) n (D51 ⊗ (zero (n'' + 1))) (zero n)) ≡[(n' + (n'' + 1)) + n]
+            (@ctxt_app _ n' (n + (n'' + 1)) D51 ((zero n) ⊗ (zero (n'' + 1))))).
+    { rewrite <- ctxt_app_assoc.
+      rewrite -> zeros_commute with (n := n'' + 1) (m := n).
+      reflexivity. }
+    rewrite H2.
+    rewrite -> ctxt_app_assoc with (c := D51) (d := (zero n)) (e := (zero (n'' + 1))).
+    rewrite HEQD5 in HWEAKBNG; rewrite HD52 in HWEAKBNG.
+    replace (n' + (n'' + 1) + n) with ((n' + n) + (n'' + 1)) by lia.
+    specialize (wf_proc_app_zero (m' + m'' + m) (n' + n)
+                                (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' G51 (zero m'')) G52)
+                                (@ctxt_app _ n' n D51 (zero n)) (weaken_f m m' m'' (def r (bng f)))) as HBNG.
+    apply HBNG with (m' := 0) (n' := n'' + 1) in HWEAKBNG; clear HBNG.
+    assert ((@ctxt_app _ (m' + m'' + m) 0 (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' G51 (zero m'')) G52) (zero 0)) 
+            ≡[m' + m'' + m + 0] (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' G51 (zero m'')) G52)).
+    symmetry; replace (m' + m'' + m + 0) with (m' + m'' + m) by lia; apply app_zero_0.
+    rewrite H3 in HWEAKBNG. 
+    replace (m' + m'' + m + 0) with (m' + m'' + m) in HWEAKBNG by lia; try assumption. }
   
   (* Next: deal with the freshened body of Q *)
-  
   inversion WFP1; existT_eq; subst. clear WFP1.
   inversion WFO; existT_eq; subst. clear WFO.
   inversion WFT; existT_eq; subst. clear WFT.
+  assert (wf_proc (m' + m'' + m) ((n' + (n'' + 1)) + n) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' G' (zero m'')) G) 
+                (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) D' (zero (n'' + 1))) (zero n)) 
+                (freshen_body m m' m'' n n' n'' r' Q)).
+  {  }
   
+  (*
+    eapply wf_bag with (G' := (@ctxt_app _ m' m'' (G01 ⨥ G41 ⨥ G51) (zero m''))) 
+                     (D' := (@ctxt_app _ n' n'' (D01 ⨥ D41 ⨥ D51) (zero n''))).
+    intros x Hx. assert (zero m'' = (zero m'' ⨥ zero m''⨥ zero m'')).
+    unfold zero, sum; apply functional_extensionality; intros x0; destruction; reflexivity.
+    rewrite H2; clear H2.
+    repeat rewrite <- lctxt_sum_app_dist. 
+  *)
 Admitted.  
 
 
