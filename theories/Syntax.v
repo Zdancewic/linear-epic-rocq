@@ -2932,6 +2932,17 @@ apply wf_tpo_ind; intros; simpl.
     assumption.
 Qed.    
 
+Lemma wf_rename_fvar_ren_commute_proc :
+forall m n (G : lctxt m) (D : lctxt n) (P : proc),
+  wf_proc m n G D P ->
+    forall m0 m1 m2 m3 (G0 : lctxt m0) (G1 : lctxt m1) (G2 : lctxt m2) (G3 : lctxt m3)
+    (HM : m = m0 + (m1 + m2) + m3)
+    (HG : G ≡[m] (@ctxt_app _ m0 (m1 + m2) G0 (@ctxt_app _ (m1 + m2) m3 (G1 ⊗ G2) G3))),
+      wf_proc (m0 + (m2 + m1) + m3) n (G0 ⊗ (G2 ⊗ G1) ⊗ G3) D
+    (rename_fvar_proc (ren_commute_str m0 m1 m2 m3) P).
+Proof.
+  apply wf_rename_fvar_ren_commute_wpo.
+Qed.
 
 (*
 weaken_f : 
@@ -3232,6 +3243,17 @@ Proof.
   try lia.
 Qed. 
 
+Lemma app_zero_0_l : 
+  forall n (G : lctxt n),
+  G ≡[n] (@ctxt_app _ 0 n (zero 0) G).
+Proof. 
+  intros.
+  unfold ctxt_app, zero; intros x Hx.
+  destruct (lt_dec x 0).
+  lia. 
+  replace (x - 0) with x by lia; lia.
+Qed. 
+
 Lemma ctxt_app_split : forall m n (G : lctxt (m + n)),
   exists (G1 : lctxt m) (G2 : lctxt n),
     G ≡[m + n] G1 ⊗ G2.
@@ -3406,20 +3428,85 @@ Proof.
   intros x; destruction.
 Qed.
 
+(* Ch-ch-ch-changes:
+  in Q0 : swap m'' and m in (ren_commute_str ...) 
+*)
 Definition freshen_body m m' m'' (n:nat) n' n'' (r':nat) (Q:proc) :=
-  let Q0 := rename_fvar_proc (ren_commute_str 0 m m' m'') Q in
+  let Q0 := rename_fvar_proc (ren_commute_str 0 m'' m' m) Q in
   let Q1 := rename_rvar_proc (weaken_ren (n'' + 1) 0 n') Q0 in
   let Q2 := @rename_rvar_proc (n' + (n'' + 1)) (n' + (n'' + 1)) (rename_var (n' + n'') r') Q1 in
   Q2.
 
+
+Lemma wf_freshen_ren_comm :
+forall m m' m'' n'' (G'0 : lctxt m'') (D'1 : lctxt n'') (Q : proc) (r' : rvar),
+  (wf_proc (m'' + (m' + m)) (n'' + 1) (@ctxt_app _ m'' (m' + m) G'0 (zero (m' + m))) 
+           (@ctxt_app _ n'' 1 D'1 (1 [0 ↦ 1])) Q) -> 
+    (wf_proc (m' + m'' + m) (n'' + 1) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' (zero m') G'0) (zero m)) 
+                (@ctxt_app _ n'' 1 D'1 (1 [0 ↦ 1])) 
+                (rename_fvar_proc (ren_commute_str 0 m'' m' m) Q)).
+Proof.
+  intros. 
+  replace (m' + m'' + m) with (0 + (m' + m'') + m) by lia.
+  assert ((@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' (zero m') G'0) (zero m)) ≡[(m' + m'') + m]
+          (@ctxt_app _ 0 ((m' + m'') + m) (zero 0) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' (zero m') G'0) (zero m)))).
+  apply app_zero_0_l with (n := (m' + m'') + m).
+  rewrite H0; clear H0.
+  rewrite -> ctxt_app_assoc.
+  apply wf_rename_fvar_ren_commute_proc with (m := m'' + (m' + m)) (n := n'' + 1)
+                                             (G := (@ctxt_app _ m'' (m' + m) G'0 (zero (m' + m)))).
+  try assumption.
+  try lia.
+  unfold ctxt_app, zero, ctxt_eq; intros x Hx; destruction.
+  replace (x - 0) with x by lia; reflexivity.
+Qed.
+
+Lemma wf_freshen_weaken :
+forall m m' m'' n' n'' (G'0 : lctxt m'') (D'1 : lctxt n'') (Q : proc) (r' : rvar),
+  (wf_proc (m' + m'' + m) (n'' + 1) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' (zero m') G'0) (zero m)) 
+                (@ctxt_app _ n'' 1 D'1 (1 [0 ↦ 1])) 
+                (rename_fvar_proc (ren_commute_str 0 m'' m' m) Q)) -> 
+    wf_proc (m' + m'' + m) (n' + (n'' + 1)) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' (zero m') G'0) (zero m))
+            (@ctxt_app _ n' (n'' + 1) (zero n') ((D'1 ⊗ (1 [0 ↦ 1]))))
+            ((rename_rvar_proc (weaken_ren (n'' + 1) 0 n')
+              (rename_fvar_proc (ren_commute_str 0 m'' m' m) Q))).
+Proof.
+  intros.
+  apply weak_rvar_proc with (m := m' + m'' + m) (n0 := n'' + 1) 
+                            (G := (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' (zero m') G'0) (zero m)))
+                            (D0 := (@ctxt_app _ n'' 1 D'1 (1 [0 ↦ 1]))) 
+                            (P := (rename_fvar_proc (ren_commute_str 0 m'' m' m) Q))
+                            (n := (n'' + 1)) (n' := 0) (n'' := n') 
+                            (D' :=(zero 0)) 
+                            (D := (@ctxt_app _ n'' 1 D'1 (1 [0 ↦ 1]))).
+  try assumption.
+  try lia.
+  unfold ctxt_app, zero, one, delta, ctxt_eq; intros x Hx; destruction.
+  replace (x - 0) with x by lia; reflexivity.
+Qed.
+
+Lemma wf_freshen_rename_var :
+forall m m' m'' n n' n'' (G'0 : lctxt m'') (D'1 : lctxt n'') (Q : proc) (r' : rvar),
+  wf_proc (m' + m'' + m) (n' + (n'' + 1)) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' (zero m') G'0) (zero m))
+          (@ctxt_app _ n' (n'' + 1) (zero n') ((D'1 ⊗ (1 [0 ↦ 1]))))
+          ((rename_rvar_proc (weaken_ren (n'' + 1) 0 n')
+            (rename_fvar_proc (ren_commute_str 0 m'' m' m) Q))) -> 
+  (wf_proc (m' + m'' + m) ((n' + (n'' + 1)) + n) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' (zero m') G'0) (zero m)) 
+           (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) (one n' r') (@ctxt_app _ n'' 1 D'1 (zero 1))) (zero n)) 
+           (freshen_body m m' m'' n n' n'' r' Q)).
+Proof.
+  intros.
+  unfold freshen_body.
+
+Admitted.
+
 Lemma wf_freshen : 
-forall m m' m'' n n' n'' (G'' : lctxt m'') (D'' : lctxt n'') (Q : proc),
-  (wf_proc (m'' + (m' + m)) (n'' + 1) (@ctxt_app _ m'' (m' + m) G'' (zero (m' + m))) 
-           (@ctxt_app _ n'' 1 D'' (1 [0 ↦ 1])) Q) -> 
-    forall (G : lctxt m) (G' : lctxt m') (D' : lctxt n') (r' : var),
-    (wf_proc (m' + m'' + m) (n' + (n'' + 1) + n) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' G' (zero m'')) G)
-             (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) D' (zero (n'' + 1))) (zero n)) 
-             (freshen_body m m' m'' n n' n'' r' Q)).
+forall m m' m'' n n' n'' (G'0 : lctxt m'') (D'1 : lctxt n'') (Q : proc) (r' : rvar),
+  (wf_proc (m'' + (m' + m)) (n'' + 1) (@ctxt_app _ m'' (m' + m) G'0 (zero (m' + m))) 
+           (@ctxt_app _ n'' 1 D'1 (1 [0 ↦ 1])) Q) -> 
+    (wf_proc (m' + m'' + m) ((n' + (n'' + 1)) + n) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' (zero m') G'0) (zero m)) 
+                (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) (one n' r') (@ctxt_app _ n'' 1 D'1 (zero 1))) (zero n)) 
+                (freshen_body m m' m'' n n' n'' r' Q)).
 Proof.
   intros.
   unfold freshen_body.
@@ -3428,12 +3515,11 @@ Admitted.
 
 Lemma wf_prim_step_app :
 forall (m m' m'' n n' n'' : nat) (G : lctxt m) (r : rvar) (r' : var) (f : fvar) (P Q : proc),
-  wf_term m n G (zero n)
-    (* G = (G1 ⨥ G2)  *)      
+  wf_term m n G (zero n)  
     (bag m' n'
-       (* G' = (G1' ⨥ G2') *)
+       (* G' ⊗ G ≡[ m' + m] G1 ⨥ G2 *)
        (par
-          (* This part of the term typechecks in the context
+          (* This part of the term (P) typechecks in the context
               m'    m   n'
              (G1' ⊗ G1) D1'
            *)
@@ -3598,12 +3684,15 @@ Proof.
   inversion WFP1; existT_eq; subst. clear WFP1.
   inversion WFO; existT_eq; subst. clear WFO.
   inversion WFT; existT_eq; subst. clear WFT.
+  inversion WFP2; existT_eq; subst.
 
-  assert (wf_proc (m' + m'' + m) ((n' + (n'' + 1)) + n) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' G' (zero m'')) G) 
-                (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) D' (zero (n'' + 1))) (zero n)) 
+  assert (wf_proc (m' + m'' + m) ((n' + (n'' + 1)) + n) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' (zero m') G'0) (zero m)) 
+                (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) (one n' r') (@ctxt_app _ n'' 1 D'1 (zero 1))) (zero n)) 
                 (freshen_body m m' m'' n n' n'' r' Q)).
+unfold freshen_body.
 
-  (* no wf_bag yet (& incorrect choices of G', D' here)
+  (* 
+    no wf_bag yet (& incorrect choices of G', D' here)
     eapply wf_bag with (G' := (@ctxt_app _ m' m'' G' (zero m'')))
                      (D' := (@ctxt_app _ n' (n'' + 1) D' (zero (n'' + 1)))).
   *)
