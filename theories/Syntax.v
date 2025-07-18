@@ -3428,19 +3428,16 @@ Proof.
   intros x; destruction.
 Qed.
 
-(* Ch-ch-ch-changes:
-  in Q0 : swap m'' and m in (ren_commute_str ...) -> this, I am fairly sure about
-  in Q2 : (n' + (n'' + 1)) to (n' + (n'' + 1) + n); also n'' to n in (rename_var ...) -> these, I am not so sure about
-*)
+
 Definition freshen_body m m' m'' (n:nat) n' n'' (r':nat) (Q:proc) :=
   let Q0 := rename_fvar_proc (ren_commute_str 0 m'' m' m) Q in
   let Q1 := rename_rvar_proc (weaken_ren (n'' + 1) 0 n') Q0 in
-  let Q2 := @rename_rvar_proc (n' + (n'' + 1) + n) (n' + (n'' + 1) + n) (rename_var (n' + n) r') Q1 in
+  let Q2 := @rename_rvar_proc (n' + (n'' + 1) + n) (n' + (n'' + 1) + n) (rename_var (n' + n'') r') Q1 in
   Q2.
 
 
 Lemma wf_freshen_ren_comm :
-forall m m' m'' n'' (G'0 : lctxt m'') (D'1 : lctxt n'') (Q : proc) (r' : rvar),
+forall m m' m'' n'' (G'0 : lctxt m'') (D'1 : lctxt n'') (Q : proc),
   (wf_proc (m'' + (m' + m)) (n'' + 1) (@ctxt_app _ m'' (m' + m) G'0 (zero (m' + m))) 
            (@ctxt_app _ n'' 1 D'1 (1 [0 ↦ 1])) Q) -> 
     (wf_proc (m' + m'' + m) (n'' + 1) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' (zero m') G'0) (zero m)) 
@@ -3463,7 +3460,7 @@ Proof.
 Qed.
 
 Lemma wf_freshen_weaken :
-forall m m' m'' n' n'' (G'0 : lctxt m'') (D'1 : lctxt n'') (Q : proc) (r' : rvar),
+forall m m' m'' n' n'' (G'0 : lctxt m'') (D'1 : lctxt n'') (Q : proc),
   (wf_proc (m' + m'' + m) (n'' + 1) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' (zero m') G'0) (zero m)) 
                 (@ctxt_app _ n'' 1 D'1 (1 [0 ↦ 1])) 
                 (rename_fvar_proc (ren_commute_str 0 m'' m' m) Q)) -> 
@@ -3487,50 +3484,51 @@ Proof.
 Qed.
 
 Lemma wf_freshen_rename_var :
-forall m m' m'' n n' n'' (G'0 : lctxt m'') (D'1 : lctxt n'') (Q : proc) (r' : rvar)
-  (HD'1 : forall x : nat, x < n'' -> D'1 x = 2 \/ D'1 x = 0),
+forall m m' m'' n n' n'' (G'0 : lctxt m'') (D'1 : lctxt n'') (Q2 : proc) (r' : rvar) 
+  (Hr' : r' < n'),
   wf_proc (m' + m'' + m) (n' + (n'' + 1)) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' (zero m') G'0) (zero m))
           (@ctxt_app _ n' (n'' + 1) (zero n') ((D'1 ⊗ (1 [0 ↦ 1]))))
-          ((rename_rvar_proc (weaken_ren (n'' + 1) 0 n')
-            (rename_fvar_proc (ren_commute_str 0 m'' m' m) Q))) -> 
-  r' < n' + n ->
-  (wf_proc (m' + m'' + m) ((n' + (n'' + 1)) + n) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' (zero m') G'0) (zero m)) 
+          Q2 ->
+  wf_proc (m' + m'' + m) ((n' + (n'' + 1)) + n) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' (zero m') G'0) (zero m)) 
            (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) (one n' r') (@ctxt_app _ n'' 1 D'1 (zero 1))) (zero n)) 
-           (freshen_body m m' m'' n n' n'' r' Q)).
+           (@rename_rvar_proc (n' + (n'' + 1) + n) (n' + (n'' + 1) + n) (rename_var (n' + n'') r') Q2).
 Proof.
   intros.
-  unfold freshen_body.
   specialize (wf_proc_app_zero (m' + m'' + m) (n' + (n'' + 1)) 
                                (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' (zero m') G'0) (zero m))
                                (@ctxt_app _ n' (n'' + 1) (zero n') (@ctxt_app _ n'' 1 D'1 (1 [0 ↦ 1])))
-                               (rename_rvar_proc (weaken_ren (n'' + 1) 0 n') 
-                                                         (rename_fvar_proc (ren_commute_str 0 m'' m' m) Q))) as H'.
+                               Q2) as H'.
   apply H' with (m' := 0) (n' := n) in H; clear H'.
   replace (m' + m'' + m + 0) with (m' + m'' + m) in H by lia.
   rewrite <- app_zero_0 with (n := m' + m'' + m) in H.
   apply wf_proc_rename_rvar with (m := (m' + m'' + m)) (n := n' + (n'' + 1) + n)
                                  (G := (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' (zero m') G'0) (zero m)))
                                  (D := (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) (zero n') (@ctxt_app _ n'' 1 D'1 (1 [0 ↦ 1]))) (zero n)))
-                                 (P := (rename_rvar_proc (weaken_ren (n'' + 1) 0 n') 
-                                                         (rename_fvar_proc (ren_commute_str 0 m'' m' m) Q)))
+                                 (P := Q2)
                                  (D1 := (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) (zero n') (@ctxt_app _ n'' 1 D'1 (zero 1))) (zero n)))
-                                 (D2 := (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) (one n' r') (@ctxt_app _ n'' 1 D'1 (zero 1))) (zero n)))
-                                 (r := n' + n) (r' := r') (cr := 0) (cr' := 1).
-
-Admitted.
+                                 (r := n' + n'') (r' := r') (cr := 1) (cr' := 0).
+  try assumption. 
+  all : try lia.
+  1, 2 : (unfold zero, ctxt_app; destruction).
+  1, 2 : (unfold zero, ctxt_app, one, delta, ctxt_eq, sum; intros x Hx; destruction).   
+Qed.
 
 Lemma wf_freshen : 
 forall m m' m'' n n' n'' (G'0 : lctxt m'') (D'1 : lctxt n'') (Q : proc) (r' : rvar),
   (wf_proc (m'' + (m' + m)) (n'' + 1) (@ctxt_app _ m'' (m' + m) G'0 (zero (m' + m))) 
            (@ctxt_app _ n'' 1 D'1 (1 [0 ↦ 1])) Q) -> 
+    r' < n' ->
     (wf_proc (m' + m'' + m) ((n' + (n'' + 1)) + n) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' (zero m') G'0) (zero m)) 
                 (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) (one n' r') (@ctxt_app _ n'' 1 D'1 (zero 1))) (zero n)) 
                 (freshen_body m m' m'' n n' n'' r' Q)).
 Proof.
   intros.
   unfold freshen_body.
-
-Admitted.
+  apply wf_freshen_ren_comm in H.
+  apply wf_freshen_weaken with (n' := n') in H.
+  apply wf_freshen_rename_var with (n := n) (r' := r') in H.
+  all : assumption.
+Qed.
 
 Lemma wf_prim_step_app :
 forall (m m' m'' n n' n'' : nat) (G : lctxt m) (r : rvar) (r' : var) (f : fvar) (P Q : proc),
@@ -3609,6 +3607,8 @@ Proof.
   rewrite HD0 in HD; rewrite HEQD0 in HD.
   rewrite HEQD3 in HD; rewrite HEQD2 in HD.
   repeat rewrite -> lctxt_sum_app_dist in HD.
+  assert (HD' : (@ctxt_app _ n' n D' (zero n)) ≡[ n' + n] 
+                (@ctxt_app _ n' n ((D01 ⨥ D31) ⨥ D21) ((D02 ⨥ D32) ⨥ D22))) by (apply HD).
   specialize (ctxt_app_inv_r_eq n' n D' ((D01 ⨥ D31) ⨥ D21) (zero n) ((D02 ⨥ D32) ⨥ D22)) as H0.
   apply H0 in HD; symmetry in HD.
   assert ((D02 ⨥ D32) ⨥ D22 ≡[ n] zero n) by apply HD.
@@ -3699,12 +3699,21 @@ Proof.
     replace (m' + m'' + m + 0) with (m' + m'' + m) in HWEAKBNG by lia; try assumption. }
   
   (* Next: deal with the freshened body of Q *)
-
   inversion WFP1; existT_eq; subst. clear WFP1.
   inversion WFO; existT_eq; subst. clear WFO.
   inversion WFT; existT_eq; subst. clear WFT.
-  inversion WFP2; existT_eq; subst.
-
+  inversion WFP2; existT_eq; subst. clear WFP2.
+  assert (r' < n').
+  { apply H0 in HD'; clear H0. 
+    rewrite H1 in HD'; rewrite H in HD'.
+    rewrite -> sum_zero_l in HD'; symmetry in HD'.
+    rewrite HD' in HEQD2; rewrite HEQD2 in HD4.
+    unfold ctxt_app, zero, ctxt_eq, one, delta in HD4; specialize (HD4 r').
+    assert (HR0' : r' < n' + n) by (apply HR0).
+    apply HD4 in HR0; clear HD4.
+    destruct (Nat.eq_dec r' r') in HR0; try lia.
+    destruct (lt_dec r' (n' + n)) in HR0; try lia.
+    destruct (lt_dec r' n') in HR0; try lia. }
   assert (wf_proc (m' + m'' + m) ((n' + (n'' + 1)) + n) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' (zero m') G'0) (zero m)) 
                 (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) (one n' r') (@ctxt_app _ n'' 1 D'1 (zero 1))) (zero n)) 
                 (freshen_body m m' m'' n n' n'' r' Q)).
