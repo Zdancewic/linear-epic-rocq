@@ -3429,12 +3429,13 @@ Proof.
 Qed.
 
 (* Ch-ch-ch-changes:
-  in Q0 : swap m'' and m in (ren_commute_str ...) 
+  in Q0 : swap m'' and m in (ren_commute_str ...) -> this, I am fairly sure about
+  in Q2 : (n' + (n'' + 1)) to (n' + (n'' + 1) + n); also n'' to n in (rename_var ...) -> these, I am not so sure about
 *)
 Definition freshen_body m m' m'' (n:nat) n' n'' (r':nat) (Q:proc) :=
   let Q0 := rename_fvar_proc (ren_commute_str 0 m'' m' m) Q in
   let Q1 := rename_rvar_proc (weaken_ren (n'' + 1) 0 n') Q0 in
-  let Q2 := @rename_rvar_proc (n' + (n'' + 1)) (n' + (n'' + 1)) (rename_var (n' + n'') r') Q1 in
+  let Q2 := @rename_rvar_proc (n' + (n'' + 1) + n) (n' + (n'' + 1) + n) (rename_var (n' + n) r') Q1 in
   Q2.
 
 
@@ -3486,17 +3487,35 @@ Proof.
 Qed.
 
 Lemma wf_freshen_rename_var :
-forall m m' m'' n n' n'' (G'0 : lctxt m'') (D'1 : lctxt n'') (Q : proc) (r' : rvar),
+forall m m' m'' n n' n'' (G'0 : lctxt m'') (D'1 : lctxt n'') (Q : proc) (r' : rvar)
+  (HD'1 : forall x : nat, x < n'' -> D'1 x = 2 \/ D'1 x = 0),
   wf_proc (m' + m'' + m) (n' + (n'' + 1)) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' (zero m') G'0) (zero m))
           (@ctxt_app _ n' (n'' + 1) (zero n') ((D'1 ⊗ (1 [0 ↦ 1]))))
           ((rename_rvar_proc (weaken_ren (n'' + 1) 0 n')
             (rename_fvar_proc (ren_commute_str 0 m'' m' m) Q))) -> 
+  r' < n' + n ->
   (wf_proc (m' + m'' + m) ((n' + (n'' + 1)) + n) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' (zero m') G'0) (zero m)) 
            (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) (one n' r') (@ctxt_app _ n'' 1 D'1 (zero 1))) (zero n)) 
            (freshen_body m m' m'' n n' n'' r' Q)).
 Proof.
   intros.
   unfold freshen_body.
+  specialize (wf_proc_app_zero (m' + m'' + m) (n' + (n'' + 1)) 
+                               (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' (zero m') G'0) (zero m))
+                               (@ctxt_app _ n' (n'' + 1) (zero n') (@ctxt_app _ n'' 1 D'1 (1 [0 ↦ 1])))
+                               (rename_rvar_proc (weaken_ren (n'' + 1) 0 n') 
+                                                         (rename_fvar_proc (ren_commute_str 0 m'' m' m) Q))) as H'.
+  apply H' with (m' := 0) (n' := n) in H; clear H'.
+  replace (m' + m'' + m + 0) with (m' + m'' + m) in H by lia.
+  rewrite <- app_zero_0 with (n := m' + m'' + m) in H.
+  apply wf_proc_rename_rvar with (m := (m' + m'' + m)) (n := n' + (n'' + 1) + n)
+                                 (G := (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' (zero m') G'0) (zero m)))
+                                 (D := (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) (zero n') (@ctxt_app _ n'' 1 D'1 (1 [0 ↦ 1]))) (zero n)))
+                                 (P := (rename_rvar_proc (weaken_ren (n'' + 1) 0 n') 
+                                                         (rename_fvar_proc (ren_commute_str 0 m'' m' m) Q)))
+                                 (D1 := (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) (zero n') (@ctxt_app _ n'' 1 D'1 (zero 1))) (zero n)))
+                                 (D2 := (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) (one n' r') (@ctxt_app _ n'' 1 D'1 (zero 1))) (zero n)))
+                                 (r := n' + n) (r' := r') (cr := 0) (cr' := 1).
 
 Admitted.
 
@@ -3689,13 +3708,10 @@ Proof.
   assert (wf_proc (m' + m'' + m) ((n' + (n'' + 1)) + n) (@ctxt_app _ (m' + m'') m (@ctxt_app _ m' m'' (zero m') G'0) (zero m)) 
                 (@ctxt_app _ (n' + (n'' + 1)) n (@ctxt_app _ n' (n'' + 1) (one n' r') (@ctxt_app _ n'' 1 D'1 (zero 1))) (zero n)) 
                 (freshen_body m m' m'' n n' n'' r' Q)).
-unfold freshen_body.
-
-  (* 
-    no wf_bag yet (& incorrect choices of G', D' here)
-    eapply wf_bag with (G' := (@ctxt_app _ m' m'' G' (zero m'')))
-                     (D' := (@ctxt_app _ n' (n'' + 1) D' (zero (n'' + 1)))).
-  *)
+  { unfold freshen_body.
+    apply wf_freshen; try assumption. }
+  
+  (* wf_bag -> wf_par, etc. *)
 Admitted.  
 
 
