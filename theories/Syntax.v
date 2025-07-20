@@ -4481,8 +4481,10 @@ Inductive prim_step : nat -> nat -> term -> term -> Prop :=
       
 | step_app :
   forall m m' m'' n n' n'' r r' f P Q,
-    let Q' := @rename_rvar_proc n'' (n' + n'') (rename_var n' r') (scope_extrude m' m'' n' n'' Q) in
-    prim_step m n
+    (* (1) scope_extrude -> ren_commute_str
+       (2) weaken_f after step ? *)
+    let Q' := (freshen_body m m' m'' n n' n'' r' Q) in
+    (* prim_step m n
       (bag m' n'
          (par P
          (par (def r (lam (bag m'' n'' Q)))
@@ -4492,7 +4494,23 @@ Inductive prim_step : nat -> nat -> term -> term -> Prop :=
          (par P
          (par (def r (lam (bag m'' n'' Q)))
          (par (def r (bng f))
-              Q')))).
+              Q')))). *)
+    prim_step m n 
+    (bag m' n'
+       (par
+          (par P
+             (par
+                (def r (lam (bag m'' n'' Q)))
+                (def r (bng f))))
+          (app f r'))) 
+    (bag (m' + m'') (n' + (n'' + 1))
+       (par
+          (weaken_f m m' m''
+          (par P
+             (par
+                (def r (lam (bag m'' n'' Q)))
+                (def r (bng f)))))
+              Q')).
 
 
 Lemma wf_prim_step :
