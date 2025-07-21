@@ -3,3 +3,4 @@
 theories/Contexts.v
 theories/Permutations.v
 theories/Syntax.v
+theories/Confluence.v
