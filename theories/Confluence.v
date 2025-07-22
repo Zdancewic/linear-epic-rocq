@@ -26,27 +26,29 @@ Proof.
   try assumption.
 Qed.
 
-
 Definition aeq (m n : nat) (t1 t2 : term) :=
   exists t1', t1 ≈t t1' /\ peq_t m n t1' t2.
 
-(* aeq Should be an equivalence relation *)
+(* aeq should be an equivalence relation *)
 Lemma reflexive_aeq : 
-  forall m n (t: term), ws_term m n t -> aeq m n t t.
+  forall m n (x : term), ws_term m n x -> aeq m n x x.
 Proof.
   intros. 
   unfold aeq.
-  exists t.
+  exists x.
   split.
   apply Reflexive_seq_term.
   apply peq_t_refl; assumption.
 Qed.
 
-#[global] Instance aeq_Symmetric (m n : nat) : Symmetric (aeq m n).
+Lemma symmetric_aeq : 
+  forall m n (x y : term), 
+  ws_term m n x -> 
+  aeq m n x y ->
+  aeq m n y x.
 Proof.
-  unfold Symmetric.
-  intros x y Hxy.
-  inversion Hxy.
+  intros m n x y Hx Hxy.
+  induction Hxy.
   destruct H as [Hx0 Hx0y].
   unfold aeq.
   assert (aeq m n y x0).
@@ -54,15 +56,20 @@ Proof.
     specialize (Reflexive_seq_term y) as Hy.
     symmetry in Hx0y.
     exists y; split; try assumption. }
-  unfold aeq in H; destruct H as [x1 [Hy Hx1]].
-  assert (aeq m n x x1).
+  assert (aeq m n x0 x).
   { unfold aeq.
-    symmetry in Hx1.
-    exists x0; split; try assumption. }
-  unfold aeq in H; destruct H as [x2 [Hx Hx1']].
-  (* Do we want the 'ws' assumption as above? *)
+    symmetry in Hx0.
+    specialize (peq_t_refl m n x) as Hxx.
+    apply Hxx in Hx; clear Hxx.
+    exists x; split; try assumption. }
+  destruct H as [x1 [Hx1 Hx1x0]].
+  destruct H0 as [x2 [Hx2 Hx2x]].
+  (* Do we want the 'ws' assumption as above? 
+  
+    specialize (aeq_Transitive y x0 x H H0) as H'.*)
 Admitted.
 
+(* Uses aeq_Symmetric. *)
 #[global] Instance aeq_Transitive (m n : nat) : Transitive (aeq m n).
 Proof.
   unfold Transitive.
@@ -76,9 +83,18 @@ Proof.
     symmetry in Hx1; symmetry in Hx0y. 
     exists y.
     split; try assumption. }
+  assert (H' : aeq m n x1 x0) by (apply H).
+  apply symmetric_aeq in H'.
   destruct H as [x2 [Hx2 Hx2x0]].
-  (* Want to use Symmetry. Also, do we want 'ws' assumption? *)
-Admitted.
+  destruct H' as [x3 [Hx3 Hx3x1]].
+  assert (x ≈t x3). 
+  { specialize (Transitive_seq_term x x0 x3 Hx0 Hx3);
+    firstorder. }
+  assert (peq_t m n x3 z).
+  { specialize (Transitive_peq_term x3 x1 z Hx3x1 Hx1z);
+    firstorder. }
+  exists x3; split; try assumption.
+Qed.
 
 
 Lemma seq_term_inv:
