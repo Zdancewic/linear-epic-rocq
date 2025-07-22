@@ -69,6 +69,10 @@ Proof.
     specialize (aeq_Transitive y x0 x H H0) as H'.*)
 Admitted.
 
+#[global] Instance aeq_Symmetric (m n : nat) : Symmetric (aeq m n).
+Proof.
+Admitted.
+
 (* Uses aeq_Symmetric. *)
 #[global] Instance aeq_Transitive (m n : nat) : Transitive (aeq m n).
 Proof.
@@ -84,7 +88,7 @@ Proof.
     exists y.
     split; try assumption. }
   assert (H' : aeq m n x1 x0) by (apply H).
-  apply symmetric_aeq in H'.
+  apply aeq_Symmetric in H'.
   destruct H as [x2 [Hx2 Hx2x0]].
   destruct H' as [x3 [Hx3 Hx3x1]].
   assert (x ≈t x3). 
