@@ -836,6 +836,29 @@ Proof.
   apply wf_tpo_ind; intros; constructor; auto.
 Qed.  
 
+Lemma wf_ws_term :
+(forall m n G D t,
+      wf_term m n G D t ->
+      ws_term m n t).
+Proof.
+  apply tpo_wf_ws.
+Qed.
+
+Lemma wf_ws_proc : 
+  (forall m n G D P,
+      wf_proc m n G D P ->
+      ws_proc m n P).
+Proof. 
+  apply tpo_wf_ws.
+Qed.
+
+Lemma wf_ws_oper :
+  (forall m n G D o,
+      wf_oper m n G D o ->
+      ws_oper m n o).
+Proof.
+  apply tpo_wf_ws.
+Qed.
 
 (* renaming ----------------------------------------------------------------- *)
 

@@ -48,13 +48,19 @@ Proof.
   intros x y Hxy.
   inversion Hxy.
   destruct H as [Hx0 Hx0y].
-  assert (aeq m n x x0).
-  { symmetry in Hx0.
-    unfold aeq.
-    symmetry in Hx0; exists x0.
-    split. assumption. admit. }
   unfold aeq.
-  symmetry in Hx0; symmetry in Hx0y.
+  assert (aeq m n y x0).
+  { unfold aeq.
+    specialize (Reflexive_seq_term y) as Hy.
+    symmetry in Hx0y.
+    exists y; split; try assumption. }
+  unfold aeq in H; destruct H as [x1 [Hy Hx1]].
+  assert (aeq m n x x1).
+  { unfold aeq.
+    symmetry in Hx1.
+    exists x0; split; try assumption. }
+  unfold aeq in H; destruct H as [x2 [Hx Hx1']].
+  (* Do we want the 'ws' assumption as above? *)
 Admitted.
 
 #[global] Instance aeq_Transitive (m n : nat) : Transitive (aeq m n).
@@ -64,12 +70,14 @@ Proof.
   inversion Hxy; inversion Hyz; subst.
   destruct H as [Hx0 Hx0y].
   destruct H0 as [Hx1 Hx1z].
+  unfold aeq.
   assert (aeq m n x1 x0).
   { unfold aeq.
     symmetry in Hx1; symmetry in Hx0y. 
     exists y.
     split; try assumption. }
   destruct H as [x2 [Hx2 Hx2x0]].
+  (* Want to use Symmetry. Also, do we want 'ws' assumption? *)
 Admitted.
 
 
@@ -90,7 +98,7 @@ Lemma seq_proc_par_inv_l :
     P1 ≈p P2.
 Proof.
   intros.
-  
+  (* Not sure how to get more info here. Induction/inversion not helpful. *)
 Admitted.  
 
 Lemma confluence :
@@ -127,8 +135,10 @@ Proof.
       exists (bag m'0 n'0 P0).
       split.
       * apply seq_bag. assumption.
-      * apply peq_t_refl. 
-
+      * apply peq_t_refl.
+        specialize (wf_ws_term m n G D t) as Ht.
+        apply Ht in HWF; clear Ht.
+        (* step and ws interact? *)
         admit. (* TODO: get this from HWF somehow *)
     + admit. (* two cases, r = r0 -> no step, r <> r0 -> complementary steps *)
   - admit. (* deduce r <> r0 -> complementary step *)
