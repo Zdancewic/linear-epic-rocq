@@ -26,6 +26,119 @@ Proof.
   try assumption.
 Qed.
 
+(* peq/seq lemmas *)
+Lemma peq_renaming : forall t m n
+  (bf : Renamings.ren m m)
+  (br : Renamings.ren n n)
+  (HWF : Renamings.wf_ren bf)
+  (HBF : Renamings.bij_ren bf)
+  (HWR : Renamings.wf_ren br)
+  (HBR : Renamings.bij_ren br),
+    peq_term m n bf br t
+      (rename_fvar_term bf (rename_rvar_term br t)).
+Proof.
+  intros.
+  unfold rename_rvar_term. 
+  
+Admitted. 
+
+Lemma seq_renaming : forall t1 t2 m n
+  (bf : Renamings.ren m m)
+  (br : Renamings.ren n n)
+  (HWF : Renamings.wf_ren bf)
+  (HBF : Renamings.bij_ren bf)
+  (HWR : Renamings.wf_ren br)
+  (HBR : Renamings.bij_ren br),
+    t1 ≈t t2 ->
+    (rename_fvar_term bf (rename_rvar_term br t1)) ≈t
+      (rename_fvar_term bf (rename_rvar_term br t2)).
+Proof.
+  intros.
+  inversion H; existT_eq; subst.
+  simpl.
+
+Admitted.
+
+Lemma peq_implies_seq: forall t t' m n bf br,
+    peq_term m n bf br t t' -> seq_term t t'.
+Proof.
+  intros.
+  inversion H; existT_eq; subst.
+  inversion EQP; existT_eq; subst.
+  - simpl.  
+Admitted.
+
+
+Lemma peq_renaming_inv_tpo :
+  (forall (m n:nat) (bf : Renamings.ren m m) (br : Renamings.ren n n) (t u : term)
+    (HT : peq_term m n bf br t u),
+    forall (HWF : Renamings.wf_ren bf) (HBF : Renamings.bij_ren bf)
+           (HWR : Renamings.wf_ren br) (HBR : Renamings.bij_ren br),
+    peq_term m n (Renamings.bij_inv bf HBF) (Renamings.bij_inv br HBR) u t)
+  /\
+  (forall (m n :nat) (bf : Renamings.ren m m) (br : Renamings.ren n n) (P Q : proc)
+    (HP : peq_proc m n bf br P Q),
+    forall (HWF : Renamings.wf_ren bf) (HBF : Renamings.bij_ren bf)
+           (HWR : Renamings.wf_ren br) (HBR : Renamings.bij_ren br),
+    peq_proc m n (Renamings.bij_inv bf HBF) (Renamings.bij_inv br HBR) Q P)
+  /\
+  (forall (m n:nat) (bf : Renamings.ren m m) (br : Renamings.ren n n) (o o' : oper)
+    (Ho : peq_oper m n bf br o o'),
+    forall (HWF : Renamings.wf_ren bf) (HBF : Renamings.bij_ren bf)
+           (HWR : Renamings.wf_ren br) (HBR : Renamings.bij_ren br),
+    peq_oper m n (Renamings.bij_inv bf HBF) (Renamings.bij_inv br HBR) o' o).
+Proof.
+  apply peq_tpo_ind; intros.
+  - apply peq_bag with (bf' := Renamings.bij_inv bf' HBF') (br' := Renamings.bij_inv br' HBR').
+    apply Renamings.wf_bij_ren_inv.
+    apply Renamings.bij_inv_bij; auto.
+    apply Renamings.wf_bij_ren_inv.
+    apply Renamings.bij_inv_bij; auto.
+    rewrite <- Renamings.bij_inv_app 
+      with (HWF1 := WFF')(HWF2 := HWF).    
+    rewrite <- Renamings.bij_inv_app 
+      with (HWF1 := WFR')(HWF2 := HWR).
+    apply H.
+    apply Renamings.wf_bij_app; auto.
+    apply Renamings.wf_bij_app; auto.
+  - assert (r = ((Renamings.bij_inv br HBR) (br r))).
+    { apply Renamings.bij_ren_inv_elt; auto. }
+    rewrite H0 at 2.
+    constructor; auto.
+    apply HWR; auto.
+  - assert (r = ((Renamings.bij_inv br HBR) (br r))).
+    { apply Renamings.bij_ren_inv_elt; auto. }
+    rewrite H at 2.
+    assert (f = ((Renamings.bij_inv bf HBF) (bf f))).
+    { apply Renamings.bij_ren_inv_elt; auto. }
+    rewrite H0 at 2.
+    constructor; auto.
+    apply HWF; auto.
+    apply HWR; auto.
+  - constructor; auto.
+  - constructor; auto.
+  - assert (r1 = ((Renamings.bij_inv br HBR) (br r1))).
+    { apply Renamings.bij_ren_inv_elt; auto. }
+    rewrite H at 2.
+    assert (r2 = ((Renamings.bij_inv br HBR) (br r2))).
+    { apply Renamings.bij_ren_inv_elt; auto. }
+    rewrite H0 at 2.
+    econstructor.
+    apply HWR; auto.
+    apply HWR; auto.
+  - assert (f = ((Renamings.bij_inv bf HBF) (bf f))).
+    { apply Renamings.bij_ren_inv_elt; auto. }
+    rewrite H at 2.
+    constructor; auto.
+    apply HWF; auto.
+  - constructor; auto.
+    rewrite <- Renamings.bij_inv_id.
+    apply H; auto.
+    apply Renamings.wf_ren_id.
+Qed.
+
+
+(* Alpha Equivalence *)
 Definition aeq (m n : nat) (t1 t2 : term) :=
   exists t1', t1 ≈t t1' /\ peq_t m n t1' t2.
 
@@ -41,36 +154,26 @@ Proof.
   apply peq_t_refl; assumption.
 Qed.
 
-Lemma symmetric_aeq : 
-  forall m n (x y : term), 
-  ws_term m n x -> 
-  aeq m n x y ->
-  aeq m n y x.
-Proof.
-  intros m n x y Hx Hxy.
-  induction Hxy.
-  destruct H as [Hx0 Hx0y].
-  unfold aeq.
-  assert (aeq m n y x0).
-  { unfold aeq.
-    specialize (Reflexive_seq_term y) as Hy.
-    symmetry in Hx0y.
-    exists y; split; try assumption. }
-  assert (aeq m n x0 x).
-  { unfold aeq.
-    symmetry in Hx0.
-    specialize (peq_t_refl m n x) as Hxx.
-    apply Hxx in Hx; clear Hxx.
-    exists x; split; try assumption. }
-  destruct H as [x1 [Hx1 Hx1x0]].
-  destruct H0 as [x2 [Hx2 Hx2x]].
-  (* Do we want the 'ws' assumption as above? 
-  
-    specialize (aeq_Transitive y x0 x H H0) as H'.*)
-Admitted.
-
 #[global] Instance aeq_Symmetric (m n : nat) : Symmetric (aeq m n).
 Proof.
+  unfold Symmetric.
+  intros x y Hxy.
+  unfold aeq in *.
+  destruct Hxy as [x0 [Hx0 Hx0y]]; symmetry in Hx0.
+  destruct Hx0y.
+
+  specialize (peq_implies_seq x0 y m n bf br EQ) as H.
+  symmetry in H.
+  specialize (peq_renaming x0 m n bf br HWF HBF HWR HBR) as H'.
+  specialize (seq_renaming x0 x m n bf br HWF HBF HWR HBR Hx0) as H''.
+  specialize (peq_t_intro m n x0 
+              (rename_fvar_term bf (rename_rvar_term br x0))
+              bf br HWF HBF HWR HBR H') as Hx0'.
+  specialize (peq_renaming x m n bf br HWF HBF HWR HBR) as Hx.
+  specialize (peq_t_intro m n x
+              (rename_fvar_term bf (rename_rvar_term br x))
+              bf br HWF HBF HWR HBR Hx) as Hx'.
+
 Admitted.
 
 (* Uses aeq_Symmetric. *)
@@ -101,6 +204,7 @@ Proof.
 Qed.
 
 
+(* seq lemmas for confluence *)
 Lemma seq_term_inv:
   forall m1 n1 P1 m2 n2 P2,
     (bag m1 n1 P1) ≈t (bag m2 n2 P2) ->
@@ -118,9 +222,21 @@ Lemma seq_proc_par_inv_l :
     P1 ≈p P2.
 Proof.
   intros.
-  (* Not sure how to get more info here. Induction/inversion not helpful. *)
+  specialize (seq_par_comm P1 Q) as HP; symmetry in HP.
+  specialize (Transitive_seq_proc (par Q P1) (par P1 Q) (par P2 Q) HP H) as HP1.
+  clear HP.
+  specialize (seq_par_comm P2 Q) as HQ.
+  specialize (Transitive_seq_proc (par Q P1) (par P2 Q) (par Q P2) HP1 HQ) as HQ1.
+  clear HQ.
+  specialize (seq_par_cong Q Q P1 P2) as HPQ.
+  specialize (Reflexive_seq_proc Q) as HQ; apply HPQ in HQ.
+
+
+  eapply seq_bag in H.
 Admitted.  
 
+
+(* Confluence *)
 Lemma confluence :
   forall m n (t t1 t2: term) (G : lctxt m) (D : lctxt n)
     (HWF : wf_term m n G D t)
