@@ -47,8 +47,7 @@ Lemma peq_renaming_tpo :
           peq_oper m n bf br o (rename_fvar_oper bf (rename_rvar_oper br o))).
 Proof.
   apply tpo_ind; intros.
-  - simpl. 
-    specialize (H m0 n0 bf br HWF HBF HWR HBR).
+  - simpl.
     
   
 Admitted. 
@@ -103,6 +102,7 @@ Lemma tpo_seq_rename_fvar :
 Proof.
   apply seq_tpo_ind; intros.
   - simpl. apply seq_bag. 
+    
     (* replace P1, P2 with ren_id *)
 Admitted.
 
@@ -207,6 +207,17 @@ Lemma peq_implies_seq:
 Proof.
   apply peq_tpo_ind; intros.
   - simpl. 
+    assert (Renamings.wf_ren (Renamings.bij_app bf' bf)).
+    { apply Renamings.wf_bij_app; try assumption. }
+    assert (Renamings.bij_ren (Renamings.bij_app bf' bf)).
+    { apply Renamings.bij_ren_app; try assumption. }
+    assert (Renamings.wf_ren (Renamings.bij_app br' br)).
+    { apply Renamings.wf_bij_app; try assumption. }
+     assert (Renamings.bij_ren (Renamings.bij_app br' br)).
+    { apply Renamings.bij_ren_app; try assumption. }
+    specialize (H H0 X H1 X0).
+    (* find appropriate lemma here 
+      rewrite -> Renamings.bij_inv_app in H. *)
 Admitted.
 
 
