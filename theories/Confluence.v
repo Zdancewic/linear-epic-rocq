@@ -115,11 +115,11 @@ Admitted.
 
 Lemma peq_renaming_tpo : 
 (forall (t : term),
-  forall (m n : nat) (bf : Renamings.ren m m) (br : Renamings.ren n n)
+  forall (m n : nat) (P : proc) (Ht : t = bag m n P)
+       (bf : Renamings.ren m m) (br : Renamings.ren n n)
        (HWF : Renamings.wf_ren bf) (HBF : Renamings.bij_ren bf)
-       (HWR : Renamings.wf_ren br) (HBR : Renamings.bij_ren br)
-       (P : proc),
-        t = bag m n P ->
+       (HWR : Renamings.wf_ren br) (HBR : Renamings.bij_ren br),
+        (* t = bag m n P -> *)
         peq_term m n bf br t (rename_fvar_term bf (rename_rvar_term br t)))
 /\
 (forall (P : proc),
@@ -136,23 +136,25 @@ Lemma peq_renaming_tpo :
 Proof.
   apply tpo_ind; intros.
   - simpl. 
-    inversion H0; subst.
-    apply peq_bag with (bf' := Renamings.bij_inv bf HBF) (br' := Renamings.bij_inv br HBR).
+    (* inversion H0; subst. *) 
+    inversion Ht; subst.
+    apply peq_bag with (m := m0) (n := n0) (bf' := Renamings.bij_inv bf HBF) (br' := Renamings.bij_inv br HBR).
     apply Renamings.wf_bij_ren_inv.
     apply Renamings.bij_inv_bij; auto.
     apply Renamings.wf_bij_ren_inv.
     apply Renamings.bij_inv_bij; auto.
-     
+    (* rewrite <- Renamings.bij_inv_app 
+      with (HWF1 := HWF) (HWF2 := HWR). *)
   
 Admitted. 
 
 Lemma peq_renaming_term :
 forall (t : term),
-  forall (m n : nat) (bf : Renamings.ren m m) (br : Renamings.ren n n)
+  forall (m n : nat) (P : proc) (Ht : t = bag m n P)
+       (bf : Renamings.ren m m) (br : Renamings.ren n n)
        (HWF : Renamings.wf_ren bf) (HBF : Renamings.bij_ren bf)
-       (HWR : Renamings.wf_ren br) (HBR : Renamings.bij_ren br)
-       (P : proc),
-       t = bag m n P ->
+       (HWR : Renamings.wf_ren br) (HBR : Renamings.bij_ren br),
+       (* t = bag m n P -> *)
         peq_term m n bf br t (rename_fvar_term bf (rename_rvar_term br t)).
 Proof.
   apply peq_renaming_tpo.
@@ -373,7 +375,9 @@ Proof.
     { apply Renamings.wf_bij_app; try assumption. }
      assert (Renamings.bij_ren (Renamings.bij_app br' br)).
     { apply Renamings.bij_ren_app; try assumption. }
-    specialize (H H0 X H1 X0). 
+    specialize (H H0 X H1 X0).
+    (* rewrite -> Renamings.bij_inv_app 
+      with (HWF1 := HWF) (HWF2 := HWR) in H. *) 
 
 Admitted.
 
