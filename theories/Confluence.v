@@ -80,86 +80,168 @@ Proof.
       rewrite Hxbf2; lia.
 Qed.
 
+Lemma bij_app_id_shift : 
+  forall (n n' : nat) (br : Renamings.ren n' n')
+         (HWF : Renamings.wf_ren br) (HBR : Renamings.bij_ren br),
+  (Renamings.bij_app (Renamings.ren_id n) br) = (Renamings.ren_shift n br).
+Proof.
+  intros.
+  unfold Renamings.bij_app, Renamings.ren_shift, Renamings.ren_id, ctxt_app.
+  apply functional_extensionality.
+  intros x; destruction.
+Qed.
+
+Lemma bij_ren_inv_elt : 
+  forall (m x : nat) (bf : Renamings.ren m m) 
+         (HWF : Renamings.wf_ren bf) (HBF : Renamings.bij_ren bf),
+    x < m -> 
+    bf (Renamings.bij_inv bf HBF x) = x.
+Proof.
+  intros. 
+  destruct HBF as [r_inv [HR HI]].
+  simpl.
+  apply HI in H.
+  destruct H.
+  symmetry. auto.
+Qed.
+
+Lemma bij_bij_app : 
+  forall (m n : nat) (bf : Renamings.ren n n)
+         (HWF : Renamings.wf_ren bf) (HBF : Renamings.bij_ren bf),
+    Renamings.bij_ren (Renamings.bij_app (Renamings.ren_id m) bf).
+Proof. 
+  intros.
+  unfold Renamings.bij_ren.
+  exists (Renamings.bij_app (Renamings.ren_id m) (Renamings.bij_inv bf HBF)).
+  split.
+  - apply Renamings.wf_bij_app. 
+    apply Renamings.wf_ren_id.
+    apply Renamings.wf_bij_ren_inv; auto.
+  - unfold Renamings.ren_inverses in *.
+    intros x Hx; split.
+    + destruct (lt_dec x m).
+      unfold Renamings.bij_app, ctxt_app, Renamings.ren_id.
+      destruction.
+      unfold Renamings.bij_app, ctxt_app, Renamings.ren_id.
+      destruction.
+      replace (m + bf (x - m) - m) with (bf (x - m)) by lia.
+      rewrite <- Renamings.bij_ren_inv_elt with (n := n) (x := (x - m)) (r := bf) (BR := HBF);
+      try assumption; try lia.
+    + destruct (lt_dec x m).
+      unfold Renamings.bij_app, ctxt_app, Renamings.ren_id.
+      destruction.
+      unfold Renamings.bij_app, ctxt_app, Renamings.ren_id.
+      destruction.
+      replace (m + Renamings.bij_inv bf HBF (x - m) - m) with 
+              (Renamings.bij_inv bf HBF (x - m)) by lia.
+      rewrite -> bij_ren_inv_elt with (m := n) (bf := bf) (HBF := HBF) (x := (x - m));
+      try assumption; try lia.
+Qed.
+
+
 (* peq/seq lemmas *)
 
-(* split peq_renaming_tpo into fvar/rvar as below? *)
 Lemma peq_renaming_fvar_tpo : 
 (forall (t : term),
   forall (m n : nat) (bf : Renamings.ren m m) (br : Renamings.ren n n)
-       (HWF : Renamings.wf_ren bf) (HBF : Renamings.bij_ren bf)
-       (HWR : Renamings.wf_ren br) (HBR : Renamings.bij_ren br)
-       (P : proc),
-       (* t = bag m n P ? *)
+       (HWF : Renamings.wf_ren bf) (HBF : Renamings.bij_ren bf),
         peq_term m n bf br t (rename_fvar_term bf t))
 /\
 (forall (P : proc),
   forall (m n : nat) (bf : Renamings.ren m m) (br : Renamings.ren n n)
-       (HWF : Renamings.wf_ren bf) (HBF : Renamings.bij_ren bf)
-       (HWR : Renamings.wf_ren br) (HBR : Renamings.bij_ren br),
+        (HWF : Renamings.wf_ren bf) (HBF : Renamings.bij_ren bf),
         peq_proc m n bf br P (rename_fvar_proc bf P))
 /\
 (forall (o : oper),
   forall (m n : nat) (bf : Renamings.ren m m) (br : Renamings.ren n n)  
-         (HWF : Renamings.wf_ren bf) (HBF : Renamings.bij_ren bf)
-         (HWR : Renamings.wf_ren br) (HBR : Renamings.bij_ren br),
+         (HWF : Renamings.wf_ren bf) (HBF : Renamings.bij_ren bf),
           peq_oper m n bf br o (rename_fvar_oper bf o)).
 Proof.
   apply tpo_ind; intros.
   - simpl.
-    apply peq_bag with (bf' := Renamings.bij_inv bf HBF) (br' := Renamings.bij_inv br HBR).
-    (* apply Renamings.wf_bij_ren_inv.
-    apply Renamings.bij_inv_bij; auto.
-    apply Renamings.wf_bij_ren_inv.
-    apply Renamings.bij_inv_bij; auto. *)
+    apply peq_bag with (bf' := Renamings.ren_id m) (br' := Renamings.ren_id n).
+    all : try apply Renamings.wf_ren_id; try apply Renamings.bij_ren_id.
+    rewrite <- bij_app_id_shift with (n := m) (br := bf); try assumption.
+    specialize (H (m + m0) (n + n0) (Renamings.bij_app (Renamings.ren_id m) bf) 
+                                    (Renamings.bij_app (Renamings.ren_id n) br)).
+    assert (Renamings.wf_ren (Renamings.bij_app (Renamings.ren_id m) bf)) as H0.
+    { apply Renamings.wf_bij_app; auto; apply Renamings.wf_ren_id. }
+    assert (Renamings.bij_ren (Renamings.bij_app (Renamings.ren_id m) bf)) as H1.
+    { apply bij_bij_app; auto; apply Renamings.bij_ren_id. }
+    specialize (H H0 H1); try assumption.
+  - simpl. 
 Admitted.
 
 Lemma peq_renaming_tpo : 
 (forall (t : term),
-  forall (m n : nat) (P : proc) (Ht : t = bag m n P)
+  forall (m n : nat) (P : proc) 
        (bf : Renamings.ren m m) (br : Renamings.ren n n)
        (HWF : Renamings.wf_ren bf) (HBF : Renamings.bij_ren bf)
-       (HWR : Renamings.wf_ren br) (HBR : Renamings.bij_ren br),
-        (* t = bag m n P -> *)
+       (HWR : Renamings.wf_ren br) (HBR : Renamings.bij_ren br)
+       (HWS : ws_term m n t),
         peq_term m n bf br t (rename_fvar_term bf (rename_rvar_term br t)))
 /\
 (forall (P : proc),
   forall (m n : nat) (bf : Renamings.ren m m) (br : Renamings.ren n n)
        (HWF : Renamings.wf_ren bf) (HBF : Renamings.bij_ren bf)
-       (HWR : Renamings.wf_ren br) (HBR : Renamings.bij_ren br),
+       (HWR : Renamings.wf_ren br) (HBR : Renamings.bij_ren br)
+       (HWS : ws_proc m n P),
         peq_proc m n bf br P (rename_fvar_proc bf (rename_rvar_proc br P)))
 /\
 (forall (o : oper),
   forall (m n : nat) (bf : Renamings.ren m m) (br : Renamings.ren n n)  
          (HWF : Renamings.wf_ren bf) (HBF : Renamings.bij_ren bf)
-         (HWR : Renamings.wf_ren br) (HBR : Renamings.bij_ren br),
+         (HWR : Renamings.wf_ren br) (HBR : Renamings.bij_ren br)
+         (HWS : ws_oper m n o),
           peq_oper m n bf br o (rename_fvar_oper bf (rename_rvar_oper br o))).
 Proof.
   apply tpo_ind; intros.
-  - simpl. 
-    (* inversion H0; subst. *) 
-    inversion Ht; subst.
-    apply peq_bag with (m := m0) (n := n0) (bf' := Renamings.bij_inv bf HBF) (br' := Renamings.bij_inv br HBR).
-    apply Renamings.wf_bij_ren_inv.
-    apply Renamings.bij_inv_bij; auto.
-    apply Renamings.wf_bij_ren_inv.
-    apply Renamings.bij_inv_bij; auto.
-    (* rewrite <- Renamings.bij_inv_app 
-      with (HWF1 := HWF) (HWF2 := HWR). *)
+  - simpl.
+    inversion HWS; existT_eq; subst.
+    apply peq_bag with (bf' := Renamings.ren_id m) (br' := Renamings.ren_id n).
+    all : try apply Renamings.wf_ren_id; try apply Renamings.bij_ren_id.
+    rewrite <- bij_app_id_shift with (n := m) (br := bf); try assumption.
+    specialize (H (m + m0) (n + n0) (Renamings.bij_app (Renamings.ren_id m) bf) 
+                                    (Renamings.bij_app (Renamings.ren_id n) br)).
+    assert (Renamings.wf_ren (Renamings.bij_app (Renamings.ren_id m) bf)) as H0.
+    { apply Renamings.wf_bij_app; auto; apply Renamings.wf_ren_id. }
+    assert (Renamings.bij_ren (Renamings.bij_app (Renamings.ren_id m) bf)) as H1.
+    { apply bij_bij_app; auto; apply Renamings.bij_ren_id. }
+    assert (Renamings.wf_ren (Renamings.bij_app (Renamings.ren_id n) br)) as H2.
+    { apply Renamings.wf_bij_app; auto; apply Renamings.wf_ren_id. }
+    assert (Renamings.bij_ren (Renamings.bij_app (Renamings.ren_id n) br)) as H3.
+    { apply bij_bij_app; auto; apply Renamings.bij_ren_id. }
+    specialize (H H0 H1 H2 H3 WS); try assumption. 
+    
+  - simpl.
+    inversion HP; existT_eq; subst.
+    specialize (H m n bf br HWF HBF WSO).
+    induction o. 
+    + simpl. 
   
 Admitted. 
 
 Lemma peq_renaming_term :
 forall (t : term),
-  forall (m n : nat) (P : proc) (Ht : t = bag m n P)
+  forall (m n : nat) (P : proc) 
        (bf : Renamings.ren m m) (br : Renamings.ren n n)
        (HWF : Renamings.wf_ren bf) (HBF : Renamings.bij_ren bf)
        (HWR : Renamings.wf_ren br) (HBR : Renamings.bij_ren br),
-       (* t = bag m n P -> *)
         peq_term m n bf br t (rename_fvar_term bf (rename_rvar_term br t)).
 Proof.
   apply peq_renaming_tpo.
-Qed.
+Qed. 
 
+Lemma peq_renaming_proc :
+forall (P : proc),
+  forall (m n : nat) 
+       (bf : Renamings.ren m m) (br : Renamings.ren n n)
+       (HWF : Renamings.wf_ren bf) (HBF : Renamings.bij_ren bf)
+       (HWR : Renamings.wf_ren br) (HBR : Renamings.bij_ren br),
+        peq_proc m n bf br P (rename_fvar_proc bf (rename_rvar_proc br P)).
+Proof.
+  apply peq_renaming_tpo.
+Qed. 
 
 Lemma tpo_seq_rename_fvar : 
   (forall t1 t2,
@@ -347,39 +429,39 @@ Lemma peq_implies_seq:
     (HT : peq_term m n bf br t t'),
     forall (HWF : Renamings.wf_ren bf) (HBF : Renamings.bij_ren bf)
            (HWR : Renamings.wf_ren br) (HBR : Renamings.bij_ren br),
-    t ≈t (rename_fvar_term (Renamings.bij_inv bf HBF)
-                           (rename_rvar_term (Renamings.bij_inv br HBR) t')))
+    exists (t'' : term), 
+    (peq_term m n bf br t t'') /\ 
+    (t ≈t (rename_fvar_term (Renamings.bij_inv bf HBF)
+                            (rename_rvar_term (Renamings.bij_inv br HBR) t''))))
   /\
  (forall (m n : nat) (bf : Renamings.ren m m) (br : Renamings.ren n n) (P P' : proc)
     (HP : peq_proc m n bf br P P'),
     forall (HWF : Renamings.wf_ren bf) (HBF : Renamings.bij_ren bf)
            (HWR : Renamings.wf_ren br) (HBR : Renamings.bij_ren br),
-    P ≈p (rename_fvar_proc (Renamings.bij_inv bf HBF)
-                           (rename_rvar_proc (Renamings.bij_inv br HBR) P')))  
+    exists (P'' : proc), 
+    (peq_proc m n bf br P P'') /\ 
+    (P ≈p (rename_fvar_proc (Renamings.bij_inv bf HBF)
+                            (rename_rvar_proc (Renamings.bij_inv br HBR) P''))))
   /\
  (forall (m n : nat) (bf : Renamings.ren m m) (br : Renamings.ren n n) (o o' : oper)
     (Ho : peq_oper m n bf br o o'),
     forall (HWF : Renamings.wf_ren bf) (HBF : Renamings.bij_ren bf)
            (HWR : Renamings.wf_ren br) (HBR : Renamings.bij_ren br),
-    o ≈o (rename_fvar_oper (Renamings.bij_inv bf HBF)
-                           (rename_rvar_oper (Renamings.bij_inv br HBR) o'))).
+    exists (o'' : oper), 
+    (peq_oper m n bf br o o'') /\ 
+    (o ≈o (rename_fvar_oper (Renamings.bij_inv bf HBF)
+                           (rename_rvar_oper (Renamings.bij_inv br HBR) o'')))).
 Proof.
   apply peq_tpo_ind; intros.
-  - simpl. apply seq_bag.
+  - exists (rename_fvar_term (Renamings.bij_app bf' bf)
+                             (rename_rvar_term (Renamings.bij_app br' br) (bag m' n' P))).
+    split.
+    + simpl. 
+      eapply peq_bag with (bf' := Renamings.ren_id m') (br' := Renamings.ren_id n').
+      all : try apply Renamings.wf_ren_id; try apply Renamings.bij_ren_id.
 
-    assert (Renamings.wf_ren (Renamings.bij_app bf' bf)).
-    { apply Renamings.wf_bij_app; try assumption. }
-    assert (Renamings.bij_ren (Renamings.bij_app bf' bf)).
-    { apply Renamings.bij_ren_app; try assumption. }
-    assert (Renamings.wf_ren (Renamings.bij_app br' br)).
-    { apply Renamings.wf_bij_app; try assumption. }
-     assert (Renamings.bij_ren (Renamings.bij_app br' br)).
-    { apply Renamings.bij_ren_app; try assumption. }
-    specialize (H H0 X H1 X0).
-    (* rewrite -> Renamings.bij_inv_app 
-      with (HWF1 := HWF) (HWF2 := HWR) in H. *) 
 
-Admitted.
+Admitted. 
 
 
 Lemma peq_renaming_inv_tpo :
@@ -531,22 +613,48 @@ Qed.
 
 
 Lemma seq_proc_par_inv_l :
-  forall P1 P2 Q,
-    (par P1 Q) ≈p (par P2 Q) ->
+  forall P1 P2 Q1 Q2
+    (Hpar : (par P1 Q1) ≈p (par P2 Q2))
+    (HQ : Q1 ≈p Q2), 
     P1 ≈p P2.
 Proof.
   intros.
-  remember (par P1 Q) as P1'.
-  remember (par P2 Q) as P2'.
-  revert P1 P2 Q HeqP1' HeqP2'.
-  induction H; intros.
-  - rewrite HeqP1' in HeqP2'.
-    inversion HeqP2'.
-    reflexivity.
-  - specialize (IHseq_proc P3 P0 Q HeqP2' HeqP1'). 
-    symmetry; assumption.
-  - specialize (IHseq_proc1 P0 P4 Q HeqP1').
-    (* This case seems to break down. *)
+  revert P2 Q1 Q1 Hpar HQ.
+  induction P1; intros.
+  - induction P2.
+    + inversion HQ. inversion Hpar; try reflexivity.
+    + inversion Hpar; try reflexivity.
+
+
+  revert P1 P2 Hpar.
+  induction HQ.
+  - intros. 
+    inversion Hpar; try reflexivity.
+(* 
+  Running into the same issue with proof state either:
+  H : par P2 P ≈p par (def r o) P
+  H0 : P0 = par (def r o) P
+  H1 : P1 = par P2 P
+
+  or else:
+  H : par P2 P ≈p par P1 P
+  H0 : P3 = par P1 P
+  H1 : P0 = par P2 P
+
+  Have tried: 
+  - inducting on HQ...
+    + inverting Hpar.
+    + inducting on P1.
+  - inducting on P1. 
+    + inverting Hpar.
+    + inducting on HQ.
+    + induction on P2...
+      * inverting Hpar.
+      * inducting on HQ -> inverting Hpar.
+
+  I am thinking that Hpar might need to change. Despite having HQ; Hpar is not enough
+  when it is inverted.
+*)
 Admitted.  
 
 
