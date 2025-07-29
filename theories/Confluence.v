@@ -440,24 +440,34 @@ Lemma peq_implies_seq:
                            (rename_rvar_oper (Renamings.bij_inv br HBR) o'')))).
 Proof.
   apply peq_tpo_ind; intros.
-  - exists (rename_fvar_term bf
-           (rename_rvar_term br (bag m' n' P))).
+  - (* Begin by specializing P? This way, goal in terms of P''. *)
+    assert (wf_ren (bij_app bf' bf)) by (apply Renamings.wf_bij_app; auto).
+    assert (bij_ren (bij_app bf' bf)) by (apply Renamings.bij_ren_app; auto).
+    assert (wf_ren (bij_app br' br)) by (apply Renamings.wf_bij_app; auto).
+    assert (bij_ren (bij_app br' br)) by (apply Renamings.bij_ren_app; auto).
+    specialize (H H0 X H1 X0).
+    destruct H as [P'' [Hpeq Hseq]].
+    (* Modify choice of t''? In terms of P or P''? 
+       Specializing H with ren_id? *)
+    exists (rename_fvar_term bf (rename_rvar_term br (bag m' n' P))).
     split.
     + simpl. 
       repeat (rewrite <- bij_app_id_shift; try assumption; 
       try (apply Renamings.wf_bij_app; auto); try (apply Renamings.bij_ren_app; auto)).
+      eapply peq_bag.
       admit.
       (* Need a more general induction hypothesis here. In particular, need to be able
          to choose (bf' := ren_id m') and (br' := ren_id n'). *)
     + simpl.
       eapply seq_bag.
-      repeat rewrite <- rename_rvar_fvar_commute_proc.
-      rewrite -> rename_rvar_proc_compose.
+      repeat rewrite -> rename_rvar_fvar_commute_proc.
       rewrite -> rename_fvar_compose_proc.
+      rewrite -> rename_rvar_proc_compose.
       repeat rewrite -> ren_compose_shift.
       repeat rewrite -> bij_ren_inv'.
       repeat (rewrite -> Renamings.ren_shift_id).
       2, 3 : try assumption.
+      (* But here, rewriting produces essentially the goal P ≈p P'' *)
       admit.
 
   - exists (rename_fvar_proc bf
