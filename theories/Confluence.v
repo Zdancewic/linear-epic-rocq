@@ -138,6 +138,25 @@ Proof.
       try assumption; try lia.
 Qed.
 
+Lemma bij_ren_inv' :
+  forall n (r : Renamings.ren n n) (BR: Renamings.bij_ren r),
+    Renamings.wf_ren r ->
+    (Renamings.ren_compose r (Renamings.bij_inv r BR)) = (Renamings.ren_id n).
+Proof.
+  intros.
+  destruct BR as [r_inv [HR HI]].
+  simpl.
+  apply functional_extensionality.
+  intros.
+  unfold Renamings.ren_compose, compose, Renamings.ren_id.
+  destruct (lt_dec x n).
+  - apply HI. assumption.
+  - assert (r x = n). { apply H. assumption. }
+    rewrite H0.
+    apply HR.
+    lia.
+Qed.
+
 
 (* peq/seq lemmas *)
 
@@ -421,14 +440,40 @@ Lemma peq_implies_seq:
                            (rename_rvar_oper (Renamings.bij_inv br HBR) o'')))).
 Proof.
   apply peq_tpo_ind; intros.
-  - exists (rename_fvar_term (Renamings.bij_app bf' bf)
-                             (rename_rvar_term (Renamings.bij_app br' br) (bag m' n' P))).
+  - exists (rename_fvar_term bf
+           (rename_rvar_term br (bag m' n' P))).
     split.
     + simpl. 
-      eapply peq_bag with (bf' := Renamings.ren_id m') (br' := Renamings.ren_id n').
-      all : try apply Renamings.wf_ren_id; try apply Renamings.bij_ren_id.
+      repeat (rewrite <- bij_app_id_shift; try assumption; 
+      try (apply Renamings.wf_bij_app; auto); try (apply Renamings.bij_ren_app; auto)).
+      admit.
+      (* Need a more general induction hypothesis here. In particular, need to be able
+         to choose (bf' := ren_id m') and (br' := ren_id n'). *)
+    + simpl.
+      eapply seq_bag.
+      repeat rewrite <- rename_rvar_fvar_commute_proc.
+      rewrite -> rename_rvar_proc_compose.
+      rewrite -> rename_fvar_compose_proc.
+      repeat rewrite -> ren_compose_shift.
+      repeat rewrite -> bij_ren_inv'.
+      repeat (rewrite -> Renamings.ren_shift_id).
+      2, 3 : try assumption.
+      admit.
 
+  - exists (rename_fvar_proc bf
+           (rename_rvar_proc br (def r o))).
+    split.
+    + simpl.
+      eapply peq_def; auto. 
 
+      rewrite <- rename_rvar_fvar_commute_oper.
+      rewrite -> rename_rvar_oper_compose.
+      rewrite -> rename_fvar_compose_oper.
+      repeat rewrite -> ren_compose_shift.
+      repeat rewrite -> bij_ren_inv'.
+      repeat (rewrite -> Renamings.ren_shift_id).
+      2, 3 : try assumption.
+      admit.
 Admitted. 
 
 

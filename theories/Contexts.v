@@ -877,25 +877,6 @@ Module Renamings.
       lia.
   Qed.
 
-  Lemma bij_ren_inv' :
-    forall n (r : ren n n) (BR: bij_ren r),
-      wf_ren r ->
-      (ren_compose r (bij_inv r BR)) = (ren_id n).
-  Proof.
-    intros.
-    destruct BR as [r_inv [HR HI]].
-    simpl.
-    apply functional_extensionality.
-    intros.
-    unfold ren_compose, compose, ren_id.
-    destruct (lt_dec x n).
-    - apply HI. assumption.
-    - assert (r x = n). { apply H. assumption. }
-      rewrite H0.
-      apply HR.
-      lia.
-  Qed.
-
   Lemma bij_ren_inv_elt :
     forall n (r : ren n n) (BR : bij_ren r) x,
       wf_ren r ->
