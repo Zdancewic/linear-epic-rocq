@@ -886,23 +886,27 @@ Definition rename_var (x:var) (y:var) (z:var) :=
    nested subterms.
  *)
 
-Definition rename_rvar_oper {n n'} (v : ren n n') (o:oper) :=
-  match o with
-  | emp => emp
-  | tup r1 r2 => tup (v r1) (v r2)
-  | bng f => bng f
-  | lam t => lam t
-  end.
+Fixpoint rename_rvar_term {n n'} (v : ren n n') (t : term) :=
+  match t with
+  | bag m n'' P => bag m n'' (rename_rvar_proc (ren_shift n'' v) P)
+  end
 
-Fixpoint rename_rvar_proc {n n'} (v : ren n n') P : proc :=
+with rename_rvar_proc {n n'} (v : ren n n') P : proc :=
   match P with
   | def r o => def (v r) (rename_rvar_oper v o)
   | app f r => app f (v r)
   | par P1 P2 => par (rename_rvar_proc v P1) (rename_rvar_proc v P2)
+  end
+    
+with rename_rvar_oper {n n'} (v : ren n n') (o:oper) :=
+  match o with
+  | emp => emp
+  | tup r1 r2 => tup (v r1) (v r2)
+  | bng f => bng f
+  | lam t => lam (rename_rvar_term (ren_id 1) t)
   end.
 
 (* terms don't have any free rvars to rename *)
-Definition rename_rvar_term {n n'} (v : ren n n') (t : term) := t.
 
 (* Unrestricted identifiers *are* lexically scoped in the sense
    that an identifier introduced in an outer scope might be mentioned
@@ -931,23 +935,52 @@ with rename_fvar_oper {m m'} (v : ren m m') (o : oper) : oper :=
        | lam t => lam (rename_fvar_term v t)
        end.
 
-Lemma rename_rvar_oper_compose : forall n n' n'' (v1 : ren n n') (v2 : ren n' n'') (o : oper),
-    rename_rvar_oper v2 (rename_rvar_oper v1 o) = @rename_rvar_oper n n'' (ren_compose v1 v2) o.
+Lemma rename_rvar_compose_tpo : 
+  (forall (t:term),
+    forall n n' n'' (v1 : ren n n') (v2 : ren n' n''),
+      rename_rvar_term v2 (rename_rvar_term v1 t) = @rename_rvar_term n n'' (ren_compose v1 v2) t)
+  /\
+  (forall (P : proc),
+     forall n n' n'' (v1 : ren n n') (v2 : ren n' n'') ,
+       rename_rvar_proc v2 (rename_rvar_proc v1 P) = @rename_rvar_proc n n'' (ren_compose v1 v2) P)
+  /\
+  (forall (o : oper),
+    forall n n' n'' (v1 : ren n n') (v2 : ren n' n''),
+      rename_rvar_oper v2 (rename_rvar_oper v1 o) = @rename_rvar_oper n n'' (ren_compose v1 v2) o).
 Proof.
-  intros.
-  destruct o; simpl; try reflexivity.
+  apply tpo_ind; intros; simpl; try reflexivity.
+  - rewrite <- ren_compose_shift.
+    rewrite <- H.
+    reflexivity.
+  - rewrite H.
+    reflexivity.
+  - rewrite H.
+    rewrite H0.
+    reflexivity.
+  - rewrite H.
+    rewrite ren_compose_id_r.
+    reflexivity. apply wf_ren_id.
 Qed.
 
+Lemma rename_rvar_term_compose : forall n n' n'' (v1 : ren n n') (v2 : ren n' n'') (t : term),
+    rename_rvar_term v2 (rename_rvar_term v1 t) = @rename_rvar_term n n'' (ren_compose v1 v2) t.
+Proof.
+  intros.
+  apply rename_rvar_compose_tpo.
+Qed.
+  
 Lemma rename_rvar_proc_compose : forall n n' n'' (v1 : ren n n') (v2 : ren n' n'') (P : proc),
     rename_rvar_proc v2 (rename_rvar_proc v1 P) = @rename_rvar_proc n n'' (ren_compose v1 v2) P.
 Proof.
   intros.
-  induction P; try reflexivity.
-  - simpl. rewrite rename_rvar_oper_compose.
-    reflexivity.
-  - simpl.
-    rewrite IHP1. rewrite IHP2.
-    reflexivity.
+  apply rename_rvar_compose_tpo.
+Qed.
+
+Lemma rename_rvar_oper_compose : forall n n' n'' (v1 : ren n n') (v2 : ren n' n'') (o : oper),
+    rename_rvar_oper v2 (rename_rvar_oper v1 o) = @rename_rvar_oper n n'' (ren_compose v1 v2) o.
+Proof.
+  intros.
+  apply rename_rvar_compose_tpo.
 Qed.
 
 Lemma rename_fvar_compose_tpo :
@@ -1015,7 +1048,11 @@ Proof.
   - rewrite H.
     reflexivity.
   - rewrite H.
+    reflexivity.
+  - rewrite H.
     rewrite H0.
+    reflexivity.
+  - rewrite H.
     reflexivity.
 Qed.
 
@@ -1046,12 +1083,6 @@ Qed.
   
 (* Renaming by the identity does nothing. *)
 
-Lemma rename_rvar_id_term :
-  forall (t:term), forall n, rename_rvar_term (ren_id n) t = t.
-Proof.
-  intros. reflexivity.
-Qed.
-
 Lemma map_ren_id :
   forall (rs : list rvar)
     (n : nat)
@@ -1065,31 +1096,56 @@ Proof.
   destruct (lt_dec a n); auto.
   lia.
 Qed.  
-  
+
+
+Lemma rename_rvar_id_tpo :
+  (forall m n (t:term)
+      (WS:ws_term m n t),
+      rename_rvar_term (ren_id n) t = t)
+  /\
+    (forall m n (P:proc)
+       (WS:ws_proc m n P), rename_rvar_proc (ren_id n) P = P)
+  /\
+    (forall m n (o:oper)
+        (WS:ws_oper m n o), rename_rvar_oper (ren_id n) o = o).
+Proof.
+  apply ws_tpo_ind; intros; simpl; try rewrite ren_shift_id; try reflexivity.
+  - rewrite H.
+    reflexivity.
+  - rewrite H.
+    rewrite ren_id_id; auto.
+  - rewrite ren_id_id; auto.
+  - rewrite H.
+    rewrite H0.
+    reflexivity.
+  - rewrite ren_id_id; auto.
+    rewrite ren_id_id; auto.
+  - rewrite H.
+    reflexivity.
+Qed.
+
+
+Lemma rename_rvar_id_term :
+  (forall (t:term),
+    forall m n, ws_term m n t -> rename_rvar_term (ren_id n) t = t).
+Proof.
+  intros.
+  eapply rename_rvar_id_tpo; eauto.
+Qed.
+
 Lemma rename_rvar_id_oper : 
   forall (o:oper), forall m n, ws_oper m n o -> rename_rvar_oper (ren_id n) o = o.
 Proof.
   intros.
-  destruct o; auto.
-  inversion H; subst.
-  simpl. rewrite ren_id_id; auto.
-  rewrite ren_id_id; auto.
+  eapply rename_rvar_id_tpo; eauto.
 Qed.  
   
 Lemma rename_rvar_id_proc :
   forall (P:proc), forall m n, ws_proc m n P -> rename_rvar_proc (ren_id n) P = P.
 Proof.
   intros.
-  induction P; intros; auto; simpl.
-  - inversion H; subst.
-    erewrite rename_rvar_id_oper; eauto.
-    rewrite ren_id_id; auto.
-  - inversion H; subst.
-    rewrite ren_id_id; auto.
-  - inversion H; subst.
-    rewrite IHP1; auto.
-    rewrite IHP2; auto.
-Qed.
+  eapply rename_rvar_id_tpo; eauto.
+Qed.  
   
 Lemma rename_fvar_id_tpo :
   (forall (t:term),
@@ -2092,6 +2148,9 @@ Proof.
         lia_destruct.
     }
     apply wf_lam; auto.
+    erewrite rename_rvar_id_term.
+    apply WFT.
+    eapply wf_ws_term; eauto.
 Qed.
 
 
@@ -3254,6 +3313,9 @@ Proof.
       * rewrite H0 in H1.
         replace (x - (n' + n'')) with (x - n'' - n') by lia.
         assumption.
+    + erewrite rename_rvar_id_term.
+      apply WFT.
+      eapply wf_ws_term; eauto.
 Qed.
 
 Lemma app_zero_0 : 
