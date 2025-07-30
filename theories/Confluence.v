@@ -403,6 +403,19 @@ Proof.
   apply tpo_seq_rename_rvar.
 Qed.
 
+Lemma seq_rename_rvar_oper : 
+forall o1 o2,
+  o1 ≈o o2 ->
+  (forall n
+    (br : Renamings.ren n n)
+    (HWR : Renamings.wf_ren br)
+    (HBR : Renamings.bij_ren br),
+    (rename_rvar_oper br o1) ≈o
+    (rename_rvar_oper br o2)).
+Proof.
+  apply tpo_seq_rename_rvar.
+Qed.
+
 Lemma seq_renaming_term :
 forall t1 t2,
   t1 ≈t t2 ->
@@ -483,12 +496,14 @@ Proof.
     exists (def ((Renamings.bij_inv br HBR) r) o'').
     split.
     + eapply peq_def; auto.
-    + admit.
+    + (* apply seq_def. *)
+      admit.
   - inversion HP; existT_eq; subst.
     exists (app ((Renamings.bij_inv bf HBF) f) ((Renamings.bij_inv br HBR) r)).
     split.
     + apply peq_app; auto.
-    + admit.
+    + 
+      admit.
   - inversion HP; existT_eq; subst.
     specialize (H P1' m n bf br H7 HWF HBF HWR HBR).
     destruct H as [P1'' [Hpeq1 Hseq1]].
@@ -507,12 +522,16 @@ Proof.
     exists (tup ((Renamings.bij_inv br HBR) r1) ((Renamings.bij_inv br HBR) r2)).
     split.
     + apply peq_tup; auto.
-    + admit.
+    + replace (tup (bij_inv br HBR r1) (bij_inv br HBR r2)) with 
+      (rename_rvar_oper (Renamings.bij_inv br HBR) (tup r1 r2)) by reflexivity.
+
+      admit.
   - inversion Ho; existT_eq; subst.
     exists (bng ((Renamings.bij_inv bf HBF) f)).
     split.
     + apply peq_bng; auto.
-    + admit.
+    + 
+      admit.
   - inversion Ho; existT_eq; subst.
     assert (Renamings.wf_ren (Renamings.ren_id 1)) by (apply Renamings.wf_ren_id).
     specialize (H t' m 1 bf (Renamings.ren_id 1) H5 HWF HBF H0 
